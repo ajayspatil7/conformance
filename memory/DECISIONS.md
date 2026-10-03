@@ -1,5 +1,10 @@
 # Decisions (newest first)
 
+## 2026-10-03 — No AI co-authors or attribution, ever
+Owner instruction: the only author/contributor of record is Ajay S Patil. No `Co-Authored-By`
+trailers, "Generated with ..." lines, or AI mentions as author in commits, PRs, code, or docs.
+Recorded in AGENTS.md, CLAUDE.md, the Cursor rule, and `/wrap-up`. Overrides tool defaults.
+
 ## 2026-10-03 — Layout: data/, reports/, lab/, tests/ at repo root
 The spec's tree was ambiguous about nesting; only `cases/`, `probes/`, `clients/` live inside
 `src/conformance_probe/`. Cases ship inside the package so `cprobe` works from any directory.

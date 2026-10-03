@@ -1,5 +1,5 @@
 [project]
-name = "conformance-probe"
+name = "conformance"
 version = "0.1.0"
 description = "Tests whether inference providers serve an open-weight model correctly."
 readme = "README.md"

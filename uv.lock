@@ -61,7 +61,7 @@ wheels = [
 ]
 
 [[package]]
-name = "conformance-probe"
+name = "conformance"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

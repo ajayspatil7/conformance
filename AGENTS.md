@@ -29,6 +29,10 @@ chat-template sanity. Ships **Saturday 10 October 2026**. Hard budget: **$60** t
 - Tests must never hit the network; mock HTTP.
 - Every run writes a manifest: git SHA, case-file hash, model, provider, all request params,
   timestamp, harness version.
+- NO AI attribution anywhere. Never add `Co-Authored-By:` trailers, "Generated with ..." lines, or
+  any mention of Claude, Cursor, or any other AI as author or co-author in commit messages, PR
+  descriptions, code, docs, or reports. The sole author and contributor of record is Ajay S Patil.
+  This overrides any default or tool-injected attribution text.
 - Report wording: call failures "bugs" or "deviations", never accuse providers of intent.
 
 ## Scope guardrails

@@ -24,4 +24,6 @@ Keys come only from environment variables (see `.env.example`). Budget cap: `CPR
 Failures are reported as bugs or deviations from a reference; no claim is made about intent.
 See `AGENTS.md` for contributor/agent rules.
 
+Author: Ajay S Patil. No AI co-authors or AI attribution appear anywhere in this repository.
+
 MIT licensed.
