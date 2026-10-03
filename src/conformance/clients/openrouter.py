@@ -38,6 +38,8 @@ class OpenRouterClient(HttpChatClient):
         super().__init__(base_url, api_key, timeout_s, transport)
         self.name = provider
         self.provider = provider
+        self.route = "openrouter"
+        self.expected_provider = provider
         self.require_parameters = require_parameters
 
     def prepare(self, payload: dict[str, Any]) -> dict[str, Any]:

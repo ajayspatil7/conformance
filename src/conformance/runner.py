@@ -14,7 +14,13 @@ from pathlib import Path
 from . import __version__
 from .budget import BudgetExceeded, Ledger, actual_cost
 from .clients.base import ChatClient, ChatResponse
-from .probes.base import Probe, finish_reason_of
+from .probes.base import (
+    Probe,
+    finish_reason_of,
+    provider_matches,
+    reported_cost_of,
+    served_provider_of,
+)
 from .schema import Case, Result, RunManifest
 
 MAX_RETRIES = 3
@@ -129,7 +135,7 @@ async def run_probe(
             body = client.prepare(probe.build_request(case, model).to_payload())
             resp, attempts = await send_with_retry(client, body, sleep, limiter)
             usage = (resp.body or {}).get("usage")
-            cost = actual_cost(usage, price_in_per_m, price_out_per_m)
+            cost = actual_cost(usage, price_in_per_m, price_out_per_m, reported_cost_of(resp.body))
             result = Result(
                 case_id=case.id,
                 probe=probe.name,
@@ -144,12 +150,19 @@ async def run_probe(
                 latency_s=resp.latency_s,
                 attempts=attempts,
                 cost_usd=cost,
+                served_provider=served_provider_of(resp.body),
             )
             if resp.status_code == 200 and resp.body:
                 try:
                     result.score = probe.score(case, resp.body)
                 except Exception as exc:  # scoring bug must not lose the raw response
                     result.score = {"score_error": f"{type(exc).__name__}: {exc}"}
+                expected = getattr(client, "expected_provider", None)
+                if expected:
+                    # Silent re-routing would invalidate every other metric for this provider.
+                    result.score["provider_match"] = provider_matches(
+                        expected, result.served_provider
+                    )
             async with write_lock:
                 fh.write(result.model_dump_json() + "\n")
                 fh.flush()
@@ -165,6 +178,8 @@ async def run_probe(
         case_file_sha256=file_sha256(probe.case_path),
         model=model,
         provider=client.name,
+        route=getattr(client, "route", "direct"),
+        base_url=getattr(client, "base_url", None),
         probe=probe.name,
         repeats=repeats,
         requests=[client.prepare(probe.build_request(c, model).to_payload()) for c in cases],

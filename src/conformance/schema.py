@@ -46,6 +46,7 @@ class Result(BaseModel):
     latency_s: float | None = None
     attempts: int = 1
     cost_usd: float = 0.0
+    served_provider: str | None = None  # as reported by the router (OpenRouter / AI Gateway)
     score: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -56,6 +57,8 @@ class RunManifest(BaseModel):
     case_file_sha256: str
     model: str
     provider: str
+    route: str = "openrouter"  # openrouter | gateway | direct
+    base_url: str | None = None
     probe: str
     repeats: int
     requests: list[dict[str, Any]]  # every distinct request payload (all params)

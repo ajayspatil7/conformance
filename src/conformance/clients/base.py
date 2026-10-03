@@ -31,6 +31,8 @@ class HttpChatClient:
     """POST {base_url}/chat/completions. Never retries; the runner owns retry policy."""
 
     name = "http"
+    route = "direct"
+    expected_provider: str | None = None  # provider the request is pinned to, if any
 
     def __init__(
         self,

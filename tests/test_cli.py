@@ -87,4 +87,55 @@ def test_aws_log_and_spend(monkeypatch, tmp_path):
     assert r.exit_code == 0
     assert "AWS credits:    used $70.00 of $80.00" in r.output
     assert "OpenRouter API: spent $0.0000 of $60.00" in r.output
+    assert "AI Gateway:     spent $0.0000 of $5.00" in r.output
     assert runner.invoke(app, ["aws-log", "--usd", "-1"]).exit_code != 0
+
+
+def test_gateway_dry_run_uses_gateway_model_and_budget(monkeypatch, tmp_path):
+    monkeypatch.setenv("CONFORMANCE_DATA_DIR", str(tmp_path))
+    r = runner.invoke(
+        app,
+        ["run", "--probe", "params", "--route", "gateway", "--provider", "deepinfra",
+         "--price-in", "0.15", "--price-out", "1.875", "--repeats", "1"],
+    )  # fmt: skip
+    assert r.exit_code == 0, r.output
+    assert "route=gateway model=alibaba/qwen3.8-27b" in r.output
+    assert "of $5.00" in r.output
+
+
+def test_gateway_real_run_needs_gateway_key(monkeypatch, tmp_path):
+    monkeypatch.setenv("CONFORMANCE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
+    monkeypatch.delenv("AI_GATEWAY_API_KEY", raising=False)
+    r = runner.invoke(
+        app,
+        ["run", "--probe", "params", "--route", "gateway", "--provider", "deepinfra",
+         "--price-in", "0.15", "--price-out", "1.875", "--yes"],
+    )  # fmt: skip
+    assert r.exit_code == 2 and "AI_GATEWAY_API_KEY" in r.output
+
+
+def test_gateway_budget_refusal(monkeypatch, tmp_path):
+    monkeypatch.setenv("CONFORMANCE_DATA_DIR", str(tmp_path))
+    r = runner.invoke(
+        app,
+        ["run", "--probe", "all", "--route", "gateway", "--provider", "wafer",
+         "--price-in", "0.02", "--price-out", "4.4", "--repeats", "10"],
+    )  # fmt: skip
+    assert r.exit_code == 2 and "REFUSED" in r.output
+
+
+def test_bad_route(monkeypatch, tmp_path):
+    monkeypatch.setenv("CONFORMANCE_DATA_DIR", str(tmp_path))
+    assert (
+        runner.invoke(
+            app, ["run", "--probe", "params", "--provider", "p", "--route", "x"]
+        ).exit_code
+        != 0
+    )
+    assert (
+        runner.invoke(
+            app, ["run", "--probe", "params", "--provider", "p", "--route", "direct"]
+        ).exit_code
+        != 0
+    )

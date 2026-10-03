@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 
 DEFAULT_MODEL = "qwen/qwen3.8-27b"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
+GATEWAY_DEFAULT_MODEL = "alibaba/qwen3.8-27b"
+ROUTES = ("openrouter", "gateway", "direct")
 CASES_DIR = Path(__file__).parent / "cases"
 
 # Placeholder prices, USD per 1M tokens (input, output). Real prices come from
@@ -34,7 +37,9 @@ def is_free_model(model: str) -> bool:
 
 class Settings(BaseModel):
     openrouter_api_key: str | None = Field(default=None, repr=False)
+    ai_gateway_api_key: str | None = Field(default=None, repr=False)
     budget_usd: float = 60.0
+    gateway_budget_usd: float = 5.0
     max_concurrency: int = 4
     max_rpm: float = 0.0  # 0 = no client-side rate limit
     aws_credits_usd: float = 80.0
@@ -49,6 +54,10 @@ class Settings(BaseModel):
         return self.data_dir / "spend.jsonl"
 
     @property
+    def gateway_spend_path(self) -> Path:
+        return self.data_dir / "gateway_spend.jsonl"
+
+    @property
     def aws_spend_path(self) -> Path:
         return self.data_dir / "aws_spend.jsonl"
 
@@ -57,6 +66,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     e = os.environ if env is None else env
     return Settings(
         openrouter_api_key=e.get("OPENROUTER_API_KEY") or None,
+        ai_gateway_api_key=e.get("AI_GATEWAY_API_KEY") or None,
+        gateway_budget_usd=float(e.get("CONFORMANCE_GATEWAY_BUDGET_USD", "5")),
         budget_usd=float(e.get("CONFORMANCE_BUDGET_USD", "60")),
         max_concurrency=int(e.get("CONFORMANCE_MAX_CONCURRENCY", "4")),
         max_rpm=float(e.get("CONFORMANCE_MAX_RPM", "0")),

@@ -13,11 +13,17 @@ from .budget import BudgetExceeded, Ledger, estimate_cost
 from .clients.base import ChatClient
 from .clients.openai_compat import OpenAICompatClient
 from .clients.openrouter import OpenRouterClient, list_endpoints
+from .clients.vercel_gateway import VercelGatewayClient
 from .config import (
     DEFAULT_MODEL,
     DEFAULT_PLACEHOLDER_PRICE,
     FREE_MAX_RPM,
+    GATEWAY_BASE_URL,
+    GATEWAY_DEFAULT_MODEL,
+    OPENROUTER_BASE_URL,
     PLACEHOLDER_PRICES,
+    ROUTES,
+    Settings,
     is_free_model,
     load_settings,
 )
@@ -29,11 +35,39 @@ from .summary import flag_deviations, length_ratios, summarize
 app = typer.Typer(add_completion=False, help="Provider conformance probes.")
 
 
+def resolve_route(route: str | None, base_url: str | None) -> str:
+    resolved = route or ("direct" if base_url else "openrouter")
+    if resolved not in ROUTES:
+        raise typer.BadParameter(f"route must be one of {', '.join(ROUTES)}")
+    if resolved == "direct" and not base_url:
+        raise typer.BadParameter("--route direct needs --base-url")
+    return resolved
+
+
+def default_model(route: str) -> str:
+    return GATEWAY_DEFAULT_MODEL if route == "gateway" else DEFAULT_MODEL
+
+
+def route_ledger(route: str, settings: Settings) -> Ledger:
+    """AI Gateway credits are a separate $5 budget; OpenRouter and direct share the API ledger
+    (direct/self-hosted runs are priced at 0; their cost lives in the AWS credit ledger)."""
+    if route == "gateway":
+        return Ledger(settings.gateway_spend_path, settings.gateway_budget_usd)
+    return Ledger(settings.spend_path, settings.budget_usd)
+
+
 @app.command()
-def providers(model: str = typer.Argument(DEFAULT_MODEL)) -> None:
-    """List providers serving MODEL on OpenRouter (free, read-only call)."""
+def providers(
+    model: Annotated[str | None, typer.Argument(help="Model id (default per route)")] = None,
+    route: Annotated[str, typer.Option(help="openrouter | gateway")] = "openrouter",
+) -> None:
+    """List providers serving MODEL on OpenRouter or Vercel AI Gateway (free, read-only call)."""
     settings = load_settings()
-    for e in list_endpoints(model, settings.openrouter_api_key):
+    if route not in ("openrouter", "gateway"):
+        raise typer.BadParameter("route must be openrouter or gateway")
+    base = GATEWAY_BASE_URL if route == "gateway" else OPENROUTER_BASE_URL
+    key = settings.ai_gateway_api_key if route == "gateway" else settings.openrouter_api_key
+    for e in list_endpoints(model or default_model(route), key, base_url=base):
         pin = f"in ${e.prompt_price_per_m:.3f}/M" if e.prompt_price_per_m is not None else "in ?"
         pout = f"out ${e.completion_price_per_m:.3f}/M" if e.completion_price_per_m else "out ?"
         typer.echo(f"{e.provider_name:<20} tag={e.tag} quant={e.quantization} {pin} {pout}")
@@ -66,7 +100,10 @@ def run(
     probe: Annotated[str, typer.Option(help="tool_calls | reasoning | params | all")],
     provider: Annotated[list[str], typer.Option(help="Provider name; repeatable")],
     repeats: int = 5,
-    model: str = DEFAULT_MODEL,
+    model: Annotated[str | None, typer.Option(help="Model id (default per route)")] = None,
+    route: Annotated[
+        str | None, typer.Option(help="openrouter (default) | gateway | direct (needs --base-url)")
+    ] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate only (default)")] = False,
     yes: Annotated[bool, typer.Option("--yes", help="Make real API calls")] = False,
     base_url: Annotated[
@@ -93,13 +130,15 @@ def run(
         raise typer.BadParameter("--dry-run and --yes are mutually exclusive")
     real = yes
     settings = load_settings()
-    ledger = Ledger(settings.spend_path, settings.budget_usd)
+    route = resolve_route(route, base_url)
+    model = model or default_model(route)
+    ledger = route_ledger(route, settings)
     names = list(PROBES) if probe == "all" else [probe]
     if any(n not in PROBES for n in names):
         raise typer.BadParameter(f"unknown probe {probe!r}")
     selected = select_cases(names, case)
 
-    free = is_free_model(model)
+    free = route == "openrouter" and is_free_model(model)
     if free and price_in is None and price_out is None:
         price_in, price_out = 0.0, 0.0
     rpm = max_rpm if max_rpm is not None else settings.max_rpm
@@ -108,7 +147,9 @@ def run(
 
     total = 0.0
     n_requests = 0
-    typer.echo(f"model={model} repeats={repeats} mode={'REAL' if real else 'DRY-RUN'}")
+    typer.echo(
+        f"route={route} model={model} repeats={repeats} mode={'REAL' if real else 'DRY-RUN'}"
+    )
     for prov in provider:
         pin, pout = _prices(prov, price_in, price_out)
         known = prov in PLACEHOLDER_PRICES or (price_in is not None and price_out is not None)
@@ -123,7 +164,7 @@ def run(
             )
     typer.echo(
         f"TOTAL {n_requests} requests, worst-case ${total:.4f}; spent ${ledger.spent():.2f}; "
-        f"remaining ${ledger.remaining():.2f} of ${settings.budget_usd:.2f}"
+        f"remaining ${ledger.remaining():.2f} of ${ledger.cap_usd:.2f}"
     )
     if free:
         typer.echo(
@@ -131,7 +172,7 @@ def run(
             "50 req/day (1000/day with >= $10 credits purchased). Smoke tests only; "
             "free-variant results are not report data."
         )
-    if not require_parameters:
+    if not require_parameters and route == "openrouter":
         typer.echo("NOTE: require_parameters=false; unsupported params may be silently dropped.")
     try:
         ledger.check(total)
@@ -145,13 +186,18 @@ def run(
     if price_in is None or price_out is None:
         typer.echo("REFUSED: real runs need explicit --price-in and --price-out.", err=True)
         raise typer.Exit(2)
-    if not settings.openrouter_api_key and not base_url:
-        typer.echo("REFUSED: OPENROUTER_API_KEY is not set in the environment.", err=True)
+    needed = {"openrouter": "OPENROUTER_API_KEY", "gateway": "AI_GATEWAY_API_KEY"}.get(route)
+    have = {
+        "openrouter": settings.openrouter_api_key,
+        "gateway": settings.ai_gateway_api_key,
+    }.get(route)
+    if needed and not have:
+        typer.echo(f"REFUSED: {needed} is not set in the environment.", err=True)
         raise typer.Exit(2)
     asyncio.run(
         _execute(
-            selected, provider, repeats, model, base_url, price_in, price_out, ledger, rpm,
-            require_parameters,
+            selected, provider, repeats, model, route, base_url, price_in, price_out, ledger,
+            rpm, require_parameters,
         )
     )  # fmt: skip
 
@@ -161,6 +207,7 @@ async def _execute(
     providers_: list[str],
     repeats: int,
     model: str,
+    route: str,
     base_url: str | None,
     price_in: float,
     price_out: float,
@@ -171,8 +218,11 @@ async def _execute(
     settings = load_settings()
     for prov in providers_:
         client: ChatClient
-        if base_url:
-            client = OpenAICompatClient(base_url, settings.openrouter_api_key, name=prov)
+        if route == "direct":
+            # Self-hosted reference: no OpenRouter/Gateway key is ever sent to it.
+            client = OpenAICompatClient(base_url or "", None, name=prov)
+        elif route == "gateway":
+            client = VercelGatewayClient(prov, settings.ai_gateway_api_key)
         else:
             client = OpenRouterClient(
                 prov, settings.openrouter_api_key, require_parameters=require_parameters
@@ -190,9 +240,10 @@ async def _execute(
 
 @app.command()
 def spend() -> None:
-    """Show spend to date: OpenRouter API ledger and AWS credit ledger (local files only)."""
+    """Show spend to date: OpenRouter, AI Gateway, and AWS credit ledgers (local files only)."""
     settings = load_settings()
     api = Ledger(settings.spend_path, settings.budget_usd)
+    gw = Ledger(settings.gateway_spend_path, settings.gateway_budget_usd)
     aws = Ledger(settings.aws_spend_path, settings.aws_credits_usd)
     typer.echo(
         f"OpenRouter API: spent ${api.spent():.4f} of ${api.cap_usd:.2f} "
@@ -205,6 +256,10 @@ def spend() -> None:
         )
     for prov, usd in sorted(by_provider.items()):
         typer.echo(f"  {prov:<20} ${usd:.4f}")
+    typer.echo(
+        f"AI Gateway:     spent ${gw.spent():.4f} of ${gw.cap_usd:.2f} "
+        f"(remaining ${gw.remaining():.4f})  [{settings.gateway_spend_path}]"
+    )
     typer.echo(
         f"AWS credits:    used ${aws.spent():.2f} of ${aws.cap_usd:.2f} "
         f"(remaining ${aws.remaining():.2f})  [{settings.aws_spend_path}]"

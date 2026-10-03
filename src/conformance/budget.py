@@ -33,8 +33,15 @@ def estimate_cost(
     return total
 
 
-def actual_cost(usage: dict | None, price_in_per_m: float, price_out_per_m: float) -> float:
-    """Prefer provider-reported `usage.cost`; otherwise tokens x price."""
+def actual_cost(
+    usage: dict | None,
+    price_in_per_m: float,
+    price_out_per_m: float,
+    reported: float | None = None,
+) -> float:
+    """Prefer router-reported cost (`reported`, or `usage.cost`); otherwise tokens x price."""
+    if reported is not None:
+        return reported
     if not usage:
         return 0.0
     if isinstance(usage.get("cost"), (int, float)):

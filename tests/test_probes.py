@@ -164,3 +164,17 @@ def test_leak_regex_and_length_ratio():
     assert template_leaks("a <think> b </think>") == ["</think>", "<think>"]
     assert template_leaks("clean text") == []
     assert length_ratio([50, 50], [100, 100]) == 0.5
+
+
+@pytest.mark.parametrize("name", ["tool_calls", "params"])
+def test_thinking_off_cases_use_both_switches(name):
+    for c in get_probe(name).load_cases():
+        kwargs = c.params.get("chat_template_kwargs") or {}
+        if kwargs.get("enable_thinking") is False:
+            assert c.params.get("reasoning") == {"effort": "none"}, c.id
+
+
+def test_reasoning_probe_keeps_switches_separate():
+    for c in get_probe("reasoning").load_cases():
+        both = "chat_template_kwargs" in c.params and "reasoning" in c.params
+        assert not both, c.id

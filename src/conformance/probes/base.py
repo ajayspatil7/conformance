@@ -29,6 +29,55 @@ def finish_reason_of(body: dict[str, Any] | None) -> str | None:
     return first_choice(body).get("finish_reason")
 
 
+def _gateway_meta(body: dict[str, Any]) -> dict[str, Any]:
+    """Vercel AI Gateway provider metadata; location in raw chat-completions bodies unconfirmed,
+    so the documented key and its plausible spellings are all checked."""
+    msg = message_of(body)
+    for holder in (body, msg):
+        for key in ("providerMetadata", "provider_metadata"):
+            meta = holder.get(key)
+            if isinstance(meta, dict) and isinstance(meta.get("gateway"), dict):
+                return meta["gateway"]
+    return {}
+
+
+def served_provider_of(body: dict[str, Any] | None) -> str | None:
+    """Which upstream provider actually served the request, as reported by the router."""
+    if not body:
+        return None
+    if isinstance(body.get("provider"), str):  # OpenRouter
+        return body["provider"]
+    routing = _gateway_meta(body).get("routing") or {}
+    final = routing.get("finalProvider") or routing.get("resolvedProvider")
+    return final if isinstance(final, str) else None
+
+
+def reported_cost_of(body: dict[str, Any] | None) -> float | None:
+    """Router-reported USD cost: OpenRouter `usage.cost`, else AI Gateway `gateway.cost`."""
+    if not body:
+        return None
+    cost = (body.get("usage") or {}).get("cost")
+    if cost is None:
+        cost = _gateway_meta(body).get("cost")
+    try:
+        return float(cost) if cost is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _norm_provider(name: str) -> str:
+    return "".join(ch for ch in name.casefold() if ch.isalnum())
+
+
+def provider_matches(expected: str, served: str | None) -> bool | None:
+    """None when the router did not say; else a case/punctuation-insensitive name or slug match
+    (OpenRouter returns display names like "DeepInfra" for the slug "deepinfra")."""
+    if served is None:
+        return None
+    e, s = _norm_provider(expected), _norm_provider(served)
+    return bool(e and s) and (e == s or e.startswith(s) or s.startswith(e))
+
+
 class Probe(ABC):
     name: str
     case_file: str
