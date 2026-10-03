@@ -1,0 +1,45 @@
+# Non-thinking mode so completions are short and cheap.
+cases:
+  - id: stop-sequence
+    kind: stop
+    messages:
+      - {role: user, content: "Count from 1 to 10, separated by commas."}
+    params:
+      max_tokens: 128
+      temperature: 0.0
+      stop: ["5"]
+      chat_template_kwargs: {enable_thinking: false}
+
+  - id: temp0-stability
+    kind: temp0
+    description: Same prompt at temperature 0; compare output_sha across repeats.
+    messages:
+      - {role: user, content: "Name three prime numbers greater than 100."}
+    params:
+      max_tokens: 128
+      temperature: 0.0
+      chat_template_kwargs: {enable_thinking: false}
+
+  - id: max-tokens-respected
+    kind: max_tokens
+    messages:
+      - {role: user, content: "Write a long story about a lighthouse keeper."}
+    params:
+      max_tokens: 32
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      chat_template_kwargs: {enable_thinking: false}
+
+  - id: template-leakage
+    kind: leakage
+    description: Plain chat; content must not contain template special tokens.
+    messages:
+      - {role: system, content: "You are a concise assistant."}
+      - {role: user, content: "Say hello in one short sentence."}
+    params:
+      max_tokens: 64
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      chat_template_kwargs: {enable_thinking: false}
