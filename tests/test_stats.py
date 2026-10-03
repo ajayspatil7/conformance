@@ -1,6 +1,6 @@
 import pytest
 
-from conformance_probe.stats import bootstrap_ci, intervals_overlap, is_flagged, wilson_interval
+from conformance.stats import bootstrap_ci, intervals_overlap, is_flagged, wilson_interval
 
 
 def test_wilson_known_value():

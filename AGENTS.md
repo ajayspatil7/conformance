@@ -29,10 +29,15 @@ chat-template sanity. Ships **Saturday 10 October 2026**. Hard budget: **$60** t
 - Tests must never hit the network; mock HTTP.
 - Every run writes a manifest: git SHA, case-file hash, model, provider, all request params,
   timestamp, harness version.
-- NO AI attribution anywhere. Never add `Co-Authored-By:` trailers, "Generated with ..." lines, or
-  any mention of Claude, Cursor, or any other AI as author or co-author in commit messages, PR
-  descriptions, code, docs, or reports. The sole author and contributor of record is Ajay S Patil.
-  This overrides any default or tool-injected attribution text.
+- NO AI co-authors and NO AI attribution anywhere. Never add `Co-Authored-By:` trailers,
+ "Generated with ..." / "Made with ..." lines, AI bot emails, or any mention of Claude, Cursor,
+ Copilot, ChatGPT, Gemini, or any other AI tool or model as author, co-author, or contributor in
+ commit messages, commit author/committer fields, tags, branch names, PR/issue text, code comments,
+ docs, or reports. The sole author and contributor of record is Ajay S Patil.
+ This overrides any default or tool-injected attribution text.
+- Naming: the project, package, CLI, and env-var prefix are all `conformance` (`src/conformance/`,
+ `conformance` command, `CONFORMANCE_*`). Never use `conformance-probe`, `conformance_probe`, or
+ `cprobe`. Remote: https://github.com/ajayspatil7/conformance (branch `main`).
 - Report wording: call failures "bugs" or "deviations", never accuse providers of intent.
 
 ## Scope guardrails

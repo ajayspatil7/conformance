@@ -1,4 +1,4 @@
-"""`cprobe` command line interface. Real API calls require --yes; default is --dry-run."""
+"""`conformance` command line interface. Real API calls require --yes; default is --dry-run."""
 
 from __future__ import annotations
 

@@ -3,8 +3,8 @@ import asyncio
 import httpx
 import pytest
 
-from conformance_probe.clients.openai_compat import OpenAICompatClient
-from conformance_probe.clients.openrouter import OpenRouterClient, list_endpoints, parse_endpoints
+from conformance.clients.openai_compat import OpenAICompatClient
+from conformance.clients.openrouter import OpenRouterClient, list_endpoints, parse_endpoints
 
 
 def test_openrouter_pins_provider_and_sends_auth():

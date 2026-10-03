@@ -1,7 +1,7 @@
 import pytest
 
-from conformance_probe.budget import BudgetExceeded, Ledger, actual_cost, estimate_cost
-from conformance_probe.schema import Case
+from conformance.budget import BudgetExceeded, Ledger, actual_cost, estimate_cost
+from conformance.schema import Case
 
 
 def _case(max_tokens: int) -> Case:

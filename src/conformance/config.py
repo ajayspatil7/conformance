@@ -13,7 +13,7 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 CASES_DIR = Path(__file__).parent / "cases"
 
 # Placeholder prices, USD per 1M tokens (input, output). Real prices come from
-# `cprobe providers` / the provider's pricing page and are passed via --price-in/--price-out.
+# `conformance providers` / the provider's pricing page and are passed via --price-in/--price-out.
 PLACEHOLDER_PRICES: dict[str, tuple[float, float]] = {
     "placeholder-a": (0.30, 1.20),
     "placeholder-b": (0.40, 1.60),
@@ -41,7 +41,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     e = os.environ if env is None else env
     return Settings(
         openrouter_api_key=e.get("OPENROUTER_API_KEY") or None,
-        budget_usd=float(e.get("CPROBE_BUDGET_USD", "60")),
-        max_concurrency=int(e.get("CPROBE_MAX_CONCURRENCY", "4")),
-        data_dir=Path(e.get("CPROBE_DATA_DIR", "data")),
+        budget_usd=float(e.get("CONFORMANCE_BUDGET_USD", "60")),
+        max_concurrency=int(e.get("CONFORMANCE_MAX_CONCURRENCY", "4")),
+        data_dir=Path(e.get("CONFORMANCE_DATA_DIR", "data")),
     )

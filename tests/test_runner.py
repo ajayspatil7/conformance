@@ -4,11 +4,11 @@ import json
 import httpx
 import pytest
 
-from conformance_probe.budget import BudgetExceeded, Ledger
-from conformance_probe.clients.base import ChatResponse
-from conformance_probe.clients.openrouter import OpenRouterClient
-from conformance_probe.probes import get_probe
-from conformance_probe.runner import load_results, run_probe, should_retry
+from conformance.budget import BudgetExceeded, Ledger
+from conformance.clients.base import ChatResponse
+from conformance.clients.openrouter import OpenRouterClient
+from conformance.probes import get_probe
+from conformance.runner import load_results, run_probe, should_retry
 
 
 def ok_body():

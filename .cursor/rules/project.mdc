@@ -8,7 +8,10 @@ Read `AGENTS.md` first; it is canonical. Summary of hard rules:
 - Never create or modify cloud resources; `lab/RUNBOOK.md` is for the human.
 - Never edit or delete `data/runs/` (append-only).
 - Tests never touch the network.
-- No AI attribution anywhere: no `Co-Authored-By`, no mention of Cursor, Claude, or any AI as
-  author/co-author in commits, PRs, code, or docs. Sole author: Ajay S Patil.
+- No AI co-authors or attribution anywhere: no `Co-Authored-By`, no "Generated with", no mention of
+  Cursor, Claude, Copilot, ChatGPT, or any AI as author/co-author/contributor in commits, PRs, code,
+  or docs. Sole author: Ajay S Patil.
+- Naming is `conformance` everywhere (package, CLI, `CONFORMANCE_*` env vars); never
+  `conformance-probe` / `conformance_probe` / `cprobe`.
 - Every run writes a manifest. Say "bugs"/"deviations", never imply provider intent.
 - Out of scope: dashboards, web apps, databases, routing, attestation, multimodal, extra models.

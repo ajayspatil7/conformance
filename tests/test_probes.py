@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from conformance_probe.probes import PROBES, get_probe
-from conformance_probe.probes.params import length_ratio, template_leaks
-from conformance_probe.probes.reasoning import reasoning_tokens
+from conformance.probes import PROBES, get_probe
+from conformance.probes.params import length_ratio, template_leaks
+from conformance.probes.reasoning import reasoning_tokens
 
 
 def body(content="", tool_calls=None, usage=None, finish="stop"):

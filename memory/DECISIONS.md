@@ -1,5 +1,12 @@
 # Decisions (newest first)
 
+## 2026-10-03 — One name: `conformance`
+Package renamed `conformance_probe` -> `conformance`, CLI `cprobe` -> `conformance`, env vars
+`CPROBE_*` -> `CONFORMANCE_*`. Remote is https://github.com/ajayspatil7/conformance (`main`); its
+LICENSE-only initial commit was merged (unrelated histories, identical LICENSE), no force push.
+No-AI-attribution rule widened to all AI tools and all artifacts; `includeCoAuthoredBy: false` set
+in `.claude/settings.json`.
+
 ## 2026-10-03 — No AI co-authors or attribution, ever
 Owner instruction: the only author/contributor of record is Ajay S Patil. No `Co-Authored-By`
 trailers, "Generated with ..." lines, or AI mentions as author in commits, PRs, code, or docs.
@@ -7,7 +14,7 @@ Recorded in AGENTS.md, CLAUDE.md, the Cursor rule, and `/wrap-up`. Overrides too
 
 ## 2026-10-03 — Layout: data/, reports/, lab/, tests/ at repo root
 The spec's tree was ambiguous about nesting; only `cases/`, `probes/`, `clients/` live inside
-`src/conformance_probe/`. Cases ship inside the package so `cprobe` works from any directory.
+`src/conformance/`. Cases ship inside the package so `conformance` works from any directory.
 
 ## 2026-10-03 — Four example cases per probe, not three
 tool_calls needs four kinds (should-call, should-not-call, choose-among, continuation); reasoning
@@ -41,4 +48,4 @@ Provider routing fields `provider.order`, `provider.allow_fallbacks=false`,
 pages for it returned 404 via fetch, so the path and response shape (`data.endpoints[]` with
 `provider_name`, `tag`, `quantization`, `pricing`, `supported_parameters`) were checked against a
 live free GET for another model (`qwen/qwen3-32b`); no key, no spend. `order` takes the provider
-name or slug as users pass it; `cprobe providers` prints both name and tag.
+name or slug as users pass it; `conformance providers` prints both name and tag.

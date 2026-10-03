@@ -14,7 +14,7 @@ vllm serve Qwen/Qwen3.8-27B \
   --max-model-len 32768 --port 8000
 ```
 Parser names must match the model card for Qwen3.8; confirm there first. Probe it with
-`cprobe run --probe all --provider reference --base-url http://<host>:8000/v1 --price-in 0 --price-out 0 --yes`.
+`conformance run --probe all --provider reference --base-url http://<host>:8000/v1 --price-in 0 --price-out 0 --yes`.
 
 ## 2. Fault injections (each is a separate server launch; label runs by fault)
 | Fault | How | Expected probe signal |
