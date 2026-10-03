@@ -1,5 +1,24 @@
 # Findings (dated, facts only)
 
+## 2026-10-03 — Second `make smoke-free` (ModelRun fp4, n=1 per case, $0) and `make smoke-gateway`
+Smoke data only; not report data. Files: `data/runs/2026-10-03_*_ModelRun-2.jsonl`,
+`data/runs/2026-10-03_*_gateway-deepinfra.jsonl`.
+- Vercel AI Gateway: all 7 requests returned HTTP 403, `RestrictedModelsError`: "Free tier users do
+  not have access to this model". No provider was attempted (`totalProviderAttemptCount: 0`);
+  $0 spent. Gateway metadata sits at top-level `providerMetadata.gateway.routing` in the raw
+  chat-completions body; on the 403 it carried `resolvedProvider: "deepinfra"` but no
+  `finalProvider`.
+- With both thinking switches (`chat_template_kwargs` + `reasoning: {effort: none}`), tool_calls and
+  params cases returned 0 reasoning tokens (previous run, kwargs only: 27–31).
+- stop-digit: `stop: ["5"]` again not applied, now with thinking off (0 reasoning tokens): content
+  "1, 2, 3, 4, 5, 6, 7, 8, 9, 10". 2 of 2 runs on ModelRun.
+- Byte-identical outputs across the two runs (~13 min apart, different response ids, 0 cached
+  prompt tokens) for all 4 cases whose request body was unchanged and temperature > 0:
+  train-low (T=1.0, 172 completion tokens, content and reasoning identical), train-off-openrouter
+  (T=0.7, 331 tokens), train-off-kwargs (T=0.7, 93 tokens), leak-thinking-on-short (T=1.0, 38 tokens).
+  n=2 per case; consistent with ignored temperature, a fixed seed, or response caching — not
+  distinguished by this data.
+
 ## 2026-10-03 — `make smoke-free`: qwen/qwen3.8-27b:free via ModelRun (fp4), n=1 per case, $0
 Smoke data only (free variant, `require_parameters=false`, one repeat); not report data.
 Files: `data/runs/2026-10-03_{tool_calls,reasoning,params}_ModelRun.jsonl` (+ manifests).

@@ -1,0 +1,65 @@
+{
+  "run_id": "2026-10-03_params_ModelRun-2",
+  "git_sha": "32792a33485637d3d3c99f0cfe1aae1039681198",
+  "case_file": "params.yaml",
+  "case_file_sha256": "cd8771983f5d2d884993c515e30999587d721b548b7d84f9177cf30d4712403d",
+  "model": "qwen/qwen3.8-27b:free",
+  "provider": "ModelRun",
+  "route": "openrouter",
+  "base_url": "https://openrouter.ai/api/v1",
+  "probe": "params",
+  "repeats": 1,
+  "requests": [
+    {
+      "model": "qwen/qwen3.8-27b:free",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Count from 1 to 10, separated by commas."
+        }
+      ],
+      "max_tokens": 128,
+      "temperature": 0.0,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "reasoning": {
+        "effort": "none"
+      },
+      "stop": [
+        "5"
+      ],
+      "provider": {
+        "order": [
+          "ModelRun"
+        ],
+        "allow_fallbacks": false,
+        "require_parameters": false
+      }
+    },
+    {
+      "model": "qwen/qwen3.8-27b:free",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is 12 times 12? Answer briefly."
+        }
+      ],
+      "max_tokens": 2048,
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "top_k": 20,
+      "reasoning_effort": "low",
+      "provider": {
+        "order": [
+          "ModelRun"
+        ],
+        "allow_fallbacks": false,
+        "require_parameters": false
+      }
+    }
+  ],
+  "timestamp": "2026-10-03T07:42:40.051583+00:00",
+  "harness_version": "0.1.0",
+  "result_file": "2026-10-03_params_ModelRun-2.jsonl"
+}

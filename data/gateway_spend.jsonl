@@ -1,0 +1,7 @@
+{"ts": "2026-10-03T07:42:45.934250+00:00", "run_id": "2026-10-03_tool_calls_gateway-deepinfra", "provider": "gateway-deepinfra", "prompt_tokens": null, "completion_tokens": null, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:42:45.947392+00:00", "run_id": "2026-10-03_tool_calls_gateway-deepinfra", "provider": "gateway-deepinfra", "prompt_tokens": null, "completion_tokens": null, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:42:46.353392+00:00", "run_id": "2026-10-03_reasoning_gateway-deepinfra", "provider": "gateway-deepinfra", "prompt_tokens": null, "completion_tokens": null, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:42:46.652674+00:00", "run_id": "2026-10-03_reasoning_gateway-deepinfra", "provider": "gateway-deepinfra", "prompt_tokens": null, "completion_tokens": null, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:42:46.718456+00:00", "run_id": "2026-10-03_reasoning_gateway-deepinfra", "provider": "gateway-deepinfra", "prompt_tokens": null, "completion_tokens": null, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:42:46.921957+00:00", "run_id": "2026-10-03_params_gateway-deepinfra", "provider": "gateway-deepinfra", "prompt_tokens": null, "completion_tokens": null, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:42:46.941268+00:00", "run_id": "2026-10-03_params_gateway-deepinfra", "provider": "gateway-deepinfra", "prompt_tokens": null, "completion_tokens": null, "cost_usd": 0.0}

@@ -1,5 +1,18 @@
 # Decisions (newest first)
 
+## 2026-10-03 — Output agreement at every temperature, identical requests only
+`temp0_mode_agreement` generalised: `sampled_mode_agreement` (temperature > 0) is also reported,
+because the second smoke run returned byte-identical 172–331-token outputs at T=0.7–1.0. High
+sampled agreement vs the reference indicates ignored temperature / fixed seed / caching. Agreement
+is computed from response content + reasoning + tool calls (not a probe score), only across
+identical request bodies (largest variant wins); `stats` warns when one case has several request
+bodies across files, since all other metrics still pool them.
+
+## 2026-10-03 — Gateway `served_provider` = `finalProvider` only
+The 403s carried `resolvedProvider` (the plan) with zero provider attempts; treating it as "served"
+was wrong. Direct route gained `--api-key-env NAME` so a provider's own endpoint can be
+cross-checked with its own key; router keys are still never sent off-router.
+
 ## 2026-10-03 — Why providers are tested at all, and what self-hosting is for
 The project's question is "do *providers* serve Qwen3.8-27B correctly?" — what a user of DeepInfra,
 Novita, etc. actually receives. Providers are the system under test, so no amount of self-hosting

@@ -1,0 +1,86 @@
+{
+  "run_id": "2026-10-03_reasoning_gateway-deepinfra",
+  "git_sha": "32792a33485637d3d3c99f0cfe1aae1039681198",
+  "case_file": "reasoning.yaml",
+  "case_file_sha256": "60f950bd9aa46078c180842dae763ef74e408141942f884a877bd78e03bf68fa",
+  "model": "alibaba/qwen3.8-27b",
+  "provider": "gateway-deepinfra",
+  "route": "gateway",
+  "base_url": "https://ai-gateway.vercel.sh/v1",
+  "probe": "reasoning",
+  "repeats": 1,
+  "requests": [
+    {
+      "model": "alibaba/qwen3.8-27b",
+      "messages": [
+        {
+          "role": "user",
+          "content": "A train leaves at 3:15pm and arrives at 6:40pm. How many minutes is the trip? End with just the number."
+        }
+      ],
+      "max_tokens": 4096,
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "top_k": 20,
+      "reasoning_effort": "low",
+      "providerOptions": {
+        "gateway": {
+          "only": [
+            "deepinfra"
+          ]
+        }
+      }
+    },
+    {
+      "model": "alibaba/qwen3.8-27b",
+      "messages": [
+        {
+          "role": "user",
+          "content": "A train leaves at 3:15pm and arrives at 6:40pm. How many minutes is the trip? End with just the number."
+        }
+      ],
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "top_p": 0.8,
+      "top_k": 20,
+      "presence_penalty": 1.5,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "providerOptions": {
+        "gateway": {
+          "only": [
+            "deepinfra"
+          ]
+        }
+      }
+    },
+    {
+      "model": "alibaba/qwen3.8-27b",
+      "messages": [
+        {
+          "role": "user",
+          "content": "A train leaves at 3:15pm and arrives at 6:40pm. How many minutes is the trip? End with just the number."
+        }
+      ],
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "top_p": 0.8,
+      "top_k": 20,
+      "presence_penalty": 1.5,
+      "reasoning": {
+        "effort": "none"
+      },
+      "providerOptions": {
+        "gateway": {
+          "only": [
+            "deepinfra"
+          ]
+        }
+      }
+    }
+  ],
+  "timestamp": "2026-10-03T07:42:45.963585+00:00",
+  "harness_version": "0.1.0",
+  "result_file": "2026-10-03_reasoning_gateway-deepinfra.jsonl"
+}

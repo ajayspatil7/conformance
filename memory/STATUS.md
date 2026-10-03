@@ -11,7 +11,7 @@
 - Routes: `openrouter` (default), `gateway` (Vercel AI Gateway, $5 hard cap, `make smoke-gateway`),
   `direct` (self-hosted; sends no key). Every result records `served_provider`; `provider_match`
   flags re-routing. Probes A/C turn thinking off with both switches.
-- 71 offline tests; `make lint`, `make test`, `make dry-run` pass.
+- 76 offline tests; `make lint`, `make test`, `make dry-run` pass.
 - Spend: OpenRouter $0.00 of $60; AWS credits $0.00 of $80 used.
 - Pushed to https://github.com/ajayspatil7/conformance `main` up to the rename; later commits local.
 
@@ -19,18 +19,21 @@
 - Response shapes verified by `make smoke-free` (7 requests, $0): all assumptions held.
 - Thinking-off via `chat_template_kwargs` was not honoured on the free route; A/C now also send
   `reasoning: {effort: none}` (not yet re-run).
-- AI Gateway response shape (where provider metadata and cost land in a raw chat-completions body)
-  is unconfirmed; the extractor checks the documented and plausible keys. `make smoke-gateway`
-  will confirm.
+- AI Gateway is blocked: free-tier credits cannot access alibaba/qwen3.8-27b (HTTP 403,
+  `RestrictedModelsError`). Metadata location confirmed (`providerMetadata.gateway`); success-path
+  `finalProvider` and `gateway.cost` still unseen.
+- Thinking-off with both switches confirmed working on the free route.
 - Cause attribution (template vs parser vs ignored params vs substitution) not implemented.
 - Effort-ordering check (low < medium < xhigh reasoning tokens) is done by eye in the report, not code.
 - `lab/RUNBOOK.md` and `reports/report-1/README.md` are drafts.
 
 ## Next 3 tasks
-1. Human: `set -a; . ./.env; set +a; make smoke-free smoke-gateway` (~$0.03); then check
-   gateway metadata/cost extraction and that thinking is off in A/C cases.
-2. Human: approve a small paid OpenRouter run (2–3 endpoints incl. deepinfra, repeats=3) — pairs
-   with the gateway smoke to test whether the kwargs drop is router- or provider-side.
+1. Human decides the cross-check route: top up AI Gateway with paid credits, OR use a provider's
+   own endpoint via `--route direct --api-key-env`, OR drop the cross-check and rely on
+   comparing many OpenRouter providers.
+2. Human: approve a small paid OpenRouter run (3–4 endpoints incl. deepinfra, repeats=5 on
+   train-low / stop-digit / temp0 cases) — tests the kwargs drop, stop, and sampled-agreement
+   observations on real providers.
 3. Human: stand up the reference endpoint per `lab/RUNBOOK.md` (log AWS usage with `aws-log`),
    then run the full sweep (worst case $34 at 5 repeats, 17 endpoints).
 
