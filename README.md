@@ -17,9 +17,19 @@ uv run conformance providers qwen/qwen3.8-27b
 uv run conformance run --probe tool_calls --provider <name> --repeats 5 --dry-run   # default
 uv run conformance run --probe tool_calls --provider <name> --price-in X --price-out Y --yes  # spends money
 uv run conformance stats data/runs/*.jsonl --reference <ref-provider>
+make smoke-free       # $0 run of 7 cases on qwen/qwen3.8-27b:free (needs OPENROUTER_API_KEY exported)
+make spend            # OpenRouter spend + AWS credits used/remaining
+uv run conformance aws-log --usd 3.70 --hours 2 --instance g6e.xlarge --note "vLLM reference"
 ```
-Keys come only from environment variables (see `.env.example`). Budget cap: `CONFORMANCE_BUDGET_USD`
-(default 60), enforced against `data/spend.jsonl`.
+Keys come only from environment variables (see `.env.example`).
+
+Budgets: **$60 OpenRouter API** (`CONFORMANCE_BUDGET_USD`, hard cap enforced against
+`data/spend.jsonl`) and **$80 AWS credits** (`CONFORMANCE_AWS_CREDITS_USD`, tracked in
+`data/aws_spend.jsonl` from Billing-console numbers logged with `conformance aws-log`).
+
+`conformance stats` reports, per provider and case: every score as a Wilson interval (proportions)
+or bootstrap CI (numbers), `http_ok`, `temp0_mode_agreement` (temperature-0 repeats matching the
+most common output), and with `--reference`, `length_ratio` (mean completion tokens vs reference).
 
 Failures are reported as bugs or deviations from a reference; no claim is made about intent.
 See `AGENTS.md` for contributor/agent rules.

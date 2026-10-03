@@ -7,7 +7,15 @@ behaviour with a reference endpoint, reports gaps with confidence intervals, and
 to likely causes (wrong chat template, broken tool parser, ignored parameters, model substitution).
 **Current milestone: Report #1** (`Qwen/Qwen3.8-27B`, OpenRouter id `qwen/qwen3.8-27b`), three probes
 only — (A) tool calling, (B) reasoning-effort / thinking-control passthrough, (C) parameter and
-chat-template sanity. Ships **Saturday 10 October 2026**. Hard budget: **$60** total API spend.
+chat-template sanity. Ships **Saturday 10 October 2026**.
+
+Budgets (two separate ledgers, see `memory/SPEND.md`; `conformance spend` shows both):
+- **$60 OpenRouter API spend** — hard cap enforced by the harness from `data/spend.jsonl`.
+- **$80 AWS credits** — for the human-operated reference endpoint and fault-injection lab only.
+  Tracked in `data/aws_spend.jsonl`; the human logs usage read from the AWS Billing console with
+  `conformance aws-log`. Agents never call AWS to obtain these numbers.
+- `qwen/qwen3.8-27b:free` (single endpoint, ModelRun fp4, $0, 20 req/min, 50 or 1000 req/day) is
+  for harness smoke tests only. Free-variant results never go into report comparisons.
 
 ## Session protocol
 - Start of every session: read `memory/STATUS.md` and the 5 newest entries of `memory/DECISIONS.md`.
@@ -18,13 +26,16 @@ chat-template sanity. Ships **Saturday 10 October 2026**. Hard budget: **$60** t
 - `make test` — pytest (no network)
 - `make lint` — ruff check + format check
 - `make dry-run` — cost estimate for all probes over placeholder providers (no network)
+- `make smoke-free` — $0 smoke run on the `:free` variant (human runs it; needs the key exported)
+- `make spend` — both ledgers: OpenRouter API spend and AWS credits used/remaining
 
 ## Hard rules
 - NEVER make a paid API call unless the human explicitly approves it in the current session. All run
   commands default to `--dry-run`; real calls need `--yes` plus a printed cost estimate.
 - NEVER read, print, or commit `.env` or any secret. Keys come only from environment variables.
-- NEVER create, start, or modify cloud resources (AWS etc.). `lab/RUNBOOK.md` is documentation for the
-  human to execute.
+- NEVER create, start, or modify cloud resources (AWS etc.), and never call AWS APIs (including
+  billing/cost APIs). `lab/RUNBOOK.md` is documentation for the human to execute. AWS credit usage
+  enters the repo only via `conformance aws-log` with numbers the human provides.
 - NEVER edit or delete files in `data/runs/`; raw results are append-only and immutable.
 - Tests must never hit the network; mock HTTP.
 - Every run writes a manifest: git SHA, case-file hash, model, provider, all request params,

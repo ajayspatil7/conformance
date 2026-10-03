@@ -14,7 +14,10 @@ vllm serve Qwen/Qwen3.8-27B \
   --max-model-len 32768 --port 8000
 ```
 Parser names must match the model card for Qwen3.8; confirm there first. Probe it with
-`conformance run --probe all --provider reference --base-url http://<host>:8000/v1 --price-in 0 --price-out 0 --yes`.
+`conformance run --probe all --provider reference --base-url http://<host>:8000/v1 --price-in 0 --price-out 0 --yes`
+(price 0 because instance cost is tracked in the AWS credit ledger, not the API ledger).
+The `*-off-openrouter` reasoning cases use OpenRouter's `reasoning` object, which vLLM does not
+understand; compare those across OpenRouter providers only.
 
 ## 2. Fault injections (each is a separate server launch; label runs by fault)
 | Fault | How | Expected probe signal |
@@ -27,5 +30,28 @@ Parser names must match the model card for Qwen3.8; confirm there first. Probe i
 
 Record the exact launch command next to each run in `memory/FINDINGS.md`.
 
-## 3. Cost control
+## 3. AWS credits ($80) — budget and tracking
+Credits are the only AWS money for this project. Track every session; agents cannot see the bill.
+
+Before launching:
+- Sizing: 27B parameters in BF16 is ~54 GB of weights alone, so one 48 GB GPU is not enough at BF16.
+  Options: an FP8 checkpoint/quantisation on one 48 GB GPU (e.g. a g6e.xlarge, 1x L40S), or BF16 on
+  an 80 GB-class GPU (much more expensive per hour). Note: FP8 makes the reference itself quantised;
+  record that in FINDINGS and prefer BF16 if credits allow.
+- Confirm current on-demand/spot hourly price for the instance and region, and compute
+  `hours available = remaining credits / hourly price`. Check `make spend` for remaining credits.
+- New accounts often have a 0 vCPU quota for GPU instance families (Service Quotas, "Running
+  On-Demand G and VT instances"); request the increase days ahead.
+- Check that your credits apply to EC2 in that region and that EBS volumes and data transfer are
+  included in your estimate (EBS keeps billing while an instance is stopped).
+- Set an AWS Budgets alert at, e.g., $40 and $64 (50% / 80% of credits).
+- Confirm the installed vLLM supports Qwen3.8's hybrid Gated DeltaNet architecture.
+
+After every session:
+1. Terminate the instance and delete unattached EBS volumes.
+2. Read the cost from Billing -> Bills / Cost Explorer (credits applied) — it can lag ~24 h.
+3. Log it: `conformance aws-log --usd <cost> --hours <h> --instance <type> --region <r> --note "<what>"`
+   (use `--date YYYY-MM-DD` when logging late). `make spend` shows credits remaining; it warns below 20%.
+
+## 4. Cost control
 Use spot/on-demand by the hour, set a billing alarm, and tear everything down after each session.

@@ -1,5 +1,36 @@
 # Decisions (newest first)
 
+## 2026-10-03 — Length-ratio flagging uses CI overlap, not "ratio CI excludes 1"
+`length_ratio` (provider mean completion tokens / reference) is reported with a bootstrap ratio CI,
+but flagged only when the provider's and reference's mean-token CIs do not overlap, matching the
+project convention. "Ratio CI excludes 1.0" flagged 1% differences on low-variance data.
+
+## 2026-10-03 — temp0 stability = share of repeats matching the modal output
+For temperature-0 requests, `temp0_mode_agreement` = (count of most common output_sha) / repeats,
+with a Wilson interval, compared with the reference like any proportion. `http_ok` added so a
+provider that errors on every request is visible instead of silently missing from the summary.
+
+## 2026-10-03 — Case set expanded to 20 per probe
+tool_calls: 6 tools, 6 should-call / 5 should-not / 5 choose-among-6 / 4 continuations, with
+expected-argument checks; max_tokens 512 -> 2048 so a dropped `enable_thinking=false` shows up as
+`truncated` rather than a parser failure. reasoning: 4 questions x 5 controls (`reasoning_effort`
+low/medium/xhigh; off via `chat_template_kwargs`; off via OpenRouter `reasoning: {effort: none}`,
+documented at https://openrouter.ai/docs/use-cases/reasoning-tokens), answer = last number in the
+content. params: 5 each of stop / temp0 / max_tokens / leakage (2 leakage cases with thinking on).
+
+## 2026-10-03 — :free variant for $0 smoke tests only; key never read by agents
+`qwen/qwen3.8-27b:free` is one fp4 endpoint (ModelRun) without `top_k` support, so smoke runs use
+`--no-require-parameters` (recorded in every request's `provider` block). The harness prices
+`:free` models at $0 and caps them at 20 req/min (limits: 20/min, 50/day or 1000/day after $10 of
+purchases; https://openrouter.ai/docs/api-reference/limits). Free results are never report data.
+The key lives in `.env`, which agents must not read, so the human runs `make smoke-free` with the
+key exported.
+
+## 2026-10-03 — AWS credits ($80) tracked in a separate local ledger
+`data/aws_spend.jsonl` with `conformance aws-log` (human-entered from the Billing console) and
+`conformance spend` for both budgets. Agents still never touch AWS, including billing APIs.
+Reference-endpoint runs use `--price-in 0 --price-out 0` so instance cost is not double-counted.
+
 ## 2026-10-03 — One name: `conformance`
 Package renamed `conformance_probe` -> `conformance`, CLI `cprobe` -> `conformance`, env vars
 `CPROBE_*` -> `CONFORMANCE_*`. Remote is https://github.com/ajayspatil7/conformance (`main`); its
