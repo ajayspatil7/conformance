@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import subprocess
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,32 @@ from .schema import Case, Result, RunManifest
 
 MAX_RETRIES = 3
 BASE_BACKOFF_S = 1.0
+
+
+class RateLimiter:
+    """Spaces request starts at least 60/max_rpm seconds apart (no-op when max_rpm <= 0)."""
+
+    def __init__(
+        self,
+        max_rpm: float,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.interval = 60.0 / max_rpm if max_rpm > 0 else 0.0
+        self._sleep = sleep
+        self._clock = clock
+        self._next = 0.0
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        if not self.interval:
+            return
+        async with self._lock:
+            now = self._clock()
+            wait = self._next - now
+            self._next = max(now, self._next) + self.interval
+        if wait > 0:
+            await self._sleep(wait)
 
 
 def should_retry(resp: ChatResponse) -> bool:
@@ -54,10 +81,13 @@ async def send_with_retry(
     client: ChatClient,
     body: dict,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    limiter: RateLimiter | None = None,
 ) -> tuple[ChatResponse, int]:
     attempts = 0
     while True:
         attempts += 1
+        if limiter:
+            await limiter.acquire()
         resp = await client.chat(body)
         if not should_retry(resp) or attempts > MAX_RETRIES:
             return resp, attempts
@@ -76,6 +106,7 @@ async def run_probe(
     concurrency: int = 4,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     cases: list[Case] | None = None,
+    max_rpm: float = 0.0,
 ) -> tuple[Path, RunManifest]:
     cases = cases if cases is not None else probe.load_cases()
     now = datetime.now(UTC)
@@ -87,6 +118,7 @@ async def run_probe(
     sem = asyncio.Semaphore(concurrency)
     write_lock = asyncio.Lock()
     halted = False
+    limiter = RateLimiter(max_rpm, sleep)
 
     async def one(case: Case, repeat: int, fh) -> None:
         nonlocal halted
@@ -95,7 +127,7 @@ async def run_probe(
                 halted = True
                 return
             body = client.prepare(probe.build_request(case, model).to_payload())
-            resp, attempts = await send_with_retry(client, body, sleep)
+            resp, attempts = await send_with_retry(client, body, sleep, limiter)
             usage = (resp.body or {}).get("usage")
             cost = actual_cost(usage, price_in_per_m, price_out_per_m)
             result = Result(

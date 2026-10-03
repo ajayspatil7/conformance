@@ -8,7 +8,9 @@ from conformance.budget import BudgetExceeded, Ledger
 from conformance.clients.base import ChatResponse
 from conformance.clients.openrouter import OpenRouterClient
 from conformance.probes import get_probe
-from conformance.runner import load_results, run_probe, should_retry
+from conformance.runner import RateLimiter, load_results, run_probe, should_retry
+
+N_CASES = len(get_probe("params").load_cases())
 
 
 def ok_body():
@@ -55,13 +57,13 @@ def test_should_retry_only_429_and_5xx():
 def test_run_writes_jsonl_manifest_and_ledger(tmp_path):
     path, manifest = run(lambda r: httpx.Response(200, json=ok_body()), tmp_path)
     results = load_results([path])
-    assert len(results) == 8  # 4 cases x 2 repeats
+    assert len(results) == N_CASES * 2
     assert results[0].request["provider"]["allow_fallbacks"] is False
     assert results[0].score and results[0].cost_usd == 0.001
     m = json.loads(path.with_suffix(".manifest.json").read_text())
     assert m["model"] == "m" and m["provider"] == "P" and len(m["case_file_sha256"]) == 64
     assert m["git_sha"] and m["harness_version"] and m["timestamp"] and m["requests"]
-    assert Ledger(tmp_path / "spend.jsonl", 60).spent() == pytest.approx(0.008)
+    assert Ledger(tmp_path / "spend.jsonl", 60).spent() == pytest.approx(0.001 * N_CASES * 2)
 
 
 def test_retries_then_gives_up_after_three(tmp_path):
@@ -72,7 +74,7 @@ def test_retries_then_gives_up_after_three(tmp_path):
         return httpx.Response(503, json={"error": "down"})
 
     path, _ = run(handler, tmp_path, repeats=1)
-    assert calls["n"] == 4 * 4  # 4 cases x (1 try + 3 retries)
+    assert calls["n"] == N_CASES * 4  # 1 try + 3 retries each
     assert all(r.attempts == 4 and r.status_code == 503 for r in load_results([path]))
 
 
@@ -84,7 +86,7 @@ def test_no_retry_on_400(tmp_path):
         return httpx.Response(400, json={"error": "bad"})
 
     run(handler, tmp_path, repeats=1)
-    assert calls["n"] == 4
+    assert calls["n"] == N_CASES
 
 
 def test_retry_recovers(tmp_path):
@@ -107,3 +109,59 @@ def test_second_run_never_overwrites(tmp_path):
 def test_budget_cap_halts_run(tmp_path):
     with pytest.raises(BudgetExceeded):
         run(lambda r: httpx.Response(200, json=ok_body()), tmp_path, repeats=5, cap=0.0005)
+
+
+def test_rate_limiter_spaces_requests():
+    now = {"t": 100.0}
+    waits = []
+
+    async def fake_sleep(s):
+        waits.append(s)
+
+    async def go():
+        lim = RateLimiter(20, sleep=fake_sleep, clock=lambda: now["t"])
+        for _ in range(3):
+            await lim.acquire()
+
+    asyncio.run(go())
+    assert waits == [pytest.approx(3.0), pytest.approx(6.0)]  # 60/20 = 3 s apart
+
+
+def test_rate_limiter_disabled():
+    async def go():
+        await RateLimiter(0).acquire()
+
+    asyncio.run(go())
+
+
+def test_run_with_case_subset(tmp_path):
+    async def go():
+        client = OpenRouterClient(
+            "P", "k", transport=httpx.MockTransport(lambda r: httpx.Response(200, json=ok_body()))
+        )
+        probe = get_probe("params")
+        subset = [c for c in probe.load_cases() if c.id == "stop-digit"]
+
+        async def nosleep(_):
+            return None
+
+        try:
+            return await run_probe(
+                probe,
+                client,
+                "m",
+                3,
+                Ledger(tmp_path / "s.jsonl", 60),
+                tmp_path / "runs",
+                1.0,
+                1.0,
+                2,
+                nosleep,
+                cases=subset,
+            )
+        finally:
+            await client.aclose()
+
+    path, manifest = asyncio.run(go())
+    assert {r.case_id for r in load_results([path])} == {"stop-digit"}
+    assert len(manifest.requests) == 1

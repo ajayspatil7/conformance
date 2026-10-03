@@ -34,6 +34,11 @@ def test_openrouter_pins_provider_and_sends_auth():
     assert resp.status_code == 200
 
 
+def test_openrouter_require_parameters_can_be_relaxed():
+    c = OpenRouterClient("ModelRun", "k", require_parameters=False)
+    assert c.prepare({"model": "m"})["provider"]["require_parameters"] is False
+
+
 def test_openai_compat_has_no_routing_fields():
     c = OpenAICompatClient("http://localhost:8000/v1", name="ref")
     assert c.prepare({"model": "m"}) == {"model": "m"}

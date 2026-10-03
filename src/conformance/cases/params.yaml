@@ -1,45 +1,148 @@
-# Non-thinking mode so completions are short and cheap.
+# Probe C: parameter and chat-template sanity. 20 cases = 5 each of stop, temp0, max_tokens,
+# leakage. Non-thinking mode (short and cheap) except the leakage cases marked "thinking on",
+# which check the reasoning parser keeps </think> out of the content.
+# temp0 stability is aggregated across repeats (`temp0_mode_agreement` in `conformance stats`);
+# output-length ratio vs the reference is computed from all cases (`length_ratio`).
+
+definitions:
+  greedy: &greedy
+    max_tokens: 128
+    temperature: 0.0
+    chat_template_kwargs: {enable_thinking: false}
+  nonthinking: &nonthinking
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    presence_penalty: 1.5
+    chat_template_kwargs: {enable_thinking: false}
+
 cases:
-  - id: stop-sequence
+  # ---- stop sequences -------------------------------------------------------------------------
+  - id: stop-digit
     kind: stop
     messages:
       - {role: user, content: "Count from 1 to 10, separated by commas."}
-    params:
-      max_tokens: 128
-      temperature: 0.0
-      stop: ["5"]
-      chat_template_kwargs: {enable_thinking: false}
+    params: {<<: *greedy, stop: ["5"]}
 
-  - id: temp0-stability
+  - id: stop-newline
+    kind: stop
+    messages:
+      - {role: user, content: "List three fruits, one per line, no numbering."}
+    params: {<<: *greedy, stop: ["\n"]}
+
+  - id: stop-word
+    kind: stop
+    messages:
+      - {role: user, content: "Write the sentence: The quick brown fox jumps over the lazy dog."}
+    params: {<<: *greedy, stop: ["lazy"]}
+
+  - id: stop-multiple
+    kind: stop
+    description: Either stop string must end generation.
+    messages:
+      - {role: user, content: "Count from one to ten in words, separated by spaces."}
+    params: {<<: *greedy, stop: ["seven", "7"]}
+
+  - id: stop-marker
+    kind: stop
+    messages:
+      - {role: user, content: "Write a two-line poem about rain, then write END on its own line, then a third line."}
+    params: {<<: *greedy, stop: ["END"]}
+
+  # ---- temperature 0 stability (compare output across repeats) --------------------------------
+  - id: temp0-primes
     kind: temp0
-    description: Same prompt at temperature 0; compare output_sha across repeats.
     messages:
       - {role: user, content: "Name three prime numbers greater than 100."}
-    params:
-      max_tokens: 128
-      temperature: 0.0
-      chat_template_kwargs: {enable_thinking: false}
+    params: *greedy
 
-  - id: max-tokens-respected
+  - id: temp0-haiku
+    kind: temp0
+    messages:
+      - {role: user, content: "Write a haiku about autumn leaves."}
+    params: *greedy
+
+  - id: temp0-definition
+    kind: temp0
+    messages:
+      - {role: user, content: "Define 'entropy' in one sentence."}
+    params: *greedy
+
+  - id: temp0-names
+    kind: temp0
+    messages:
+      - {role: user, content: "Suggest five names for a coffee shop."}
+    params: *greedy
+
+  - id: temp0-code
+    kind: temp0
+    messages:
+      - {role: user, content: "Write a Python function that reverses a string. Code only."}
+    params: *greedy
+
+  # ---- max_tokens respected -------------------------------------------------------------------
+  - id: max-tokens-8
     kind: max_tokens
     messages:
       - {role: user, content: "Write a long story about a lighthouse keeper."}
-    params:
-      max_tokens: 32
-      temperature: 0.7
-      top_p: 0.8
-      top_k: 20
-      chat_template_kwargs: {enable_thinking: false}
+    params: {<<: *nonthinking, max_tokens: 8}
 
-  - id: template-leakage
+  - id: max-tokens-16
+    kind: max_tokens
+    messages:
+      - {role: user, content: "Explain how a bicycle works in detail."}
+    params: {<<: *nonthinking, max_tokens: 16}
+
+  - id: max-tokens-32
+    kind: max_tokens
+    messages:
+      - {role: user, content: "Describe the history of the Roman Empire."}
+    params: {<<: *nonthinking, max_tokens: 32}
+
+  - id: max-tokens-64
+    kind: max_tokens
+    messages:
+      - {role: user, content: "List 50 animals, one per line."}
+    params: {<<: *nonthinking, max_tokens: 64}
+
+  - id: max-tokens-100
+    kind: max_tokens
+    messages:
+      - {role: user, content: "Write an essay on the importance of sleep."}
+    params: {<<: *nonthinking, max_tokens: 100}
+
+  # ---- template-token leakage -----------------------------------------------------------------
+  - id: leak-hello
     kind: leakage
-    description: Plain chat; content must not contain template special tokens.
     messages:
       - {role: system, content: "You are a concise assistant."}
       - {role: user, content: "Say hello in one short sentence."}
-    params:
-      max_tokens: 64
-      temperature: 0.7
-      top_p: 0.8
-      top_k: 20
-      chat_template_kwargs: {enable_thinking: false}
+    params: {<<: *nonthinking, max_tokens: 64}
+
+  - id: leak-multiturn
+    kind: leakage
+    messages:
+      - {role: user, content: "My name is Sam."}
+      - {role: assistant, content: "Nice to meet you, Sam!"}
+      - {role: user, content: "What is my name? Answer in one sentence."}
+    params: {<<: *nonthinking, max_tokens: 64}
+
+  - id: leak-json
+    kind: leakage
+    messages:
+      - {role: user, content: "Return a JSON object with keys name and age for a fictional person. JSON only."}
+    params: {<<: *nonthinking, max_tokens: 128}
+
+  - id: leak-thinking-on-short
+    kind: leakage
+    description: Thinking on (default); </think> must stay out of the content.
+    messages:
+      - {role: user, content: "What is 12 times 12? Answer briefly."}
+    params: {max_tokens: 2048, temperature: 1.0, top_p: 0.95, top_k: 20, reasoning_effort: low}
+
+  - id: leak-thinking-on-list
+    kind: leakage
+    description: Thinking on (default); </think> must stay out of the content.
+    messages:
+      - {role: user, content: "List three primary colours, comma separated."}
+    params: {max_tokens: 2048, temperature: 1.0, top_p: 0.95, top_k: 20, reasoning_effort: low}

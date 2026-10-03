@@ -69,7 +69,6 @@ class Ledger:
             )
 
     def record(self, run_id: str, provider: str, usage: dict | None, cost_usd: float) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         row = {
             "ts": datetime.now(UTC).isoformat(),
             "run_id": run_id,
@@ -78,5 +77,33 @@ class Ledger:
             "completion_tokens": (usage or {}).get("completion_tokens"),
             "cost_usd": cost_usd,
         }
+        self._append(row)
+
+    def record_aws(
+        self, date: str, usd: float, hours: float | None, instance: str | None, region: str | None,
+        note: str = "",
+    ) -> None:  # fmt: skip
+        """Append a human-reported AWS usage row (from the Billing console). No AWS calls."""
+        if usd < 0:
+            raise ValueError("usd must be >= 0")
+        self._append(
+            {
+                "ts": datetime.now(UTC).isoformat(),
+                "date": date,
+                "cost_usd": usd,
+                "hours": hours,
+                "instance": instance,
+                "region": region,
+                "note": note,
+            }
+        )
+
+    def rows(self) -> list[dict]:
+        if not self.path.exists():
+            return []
+        return [json.loads(x) for x in self.path.read_text().splitlines() if x.strip()]
+
+    def _append(self, row: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a") as f:
             f.write(json.dumps(row) + "\n")

@@ -21,11 +21,23 @@ PLACEHOLDER_PRICES: dict[str, tuple[float, float]] = {
 }
 DEFAULT_PLACEHOLDER_PRICE = (0.30, 1.20)
 
+# `:free` variants cost $0 but are rate limited by OpenRouter: 20 req/min, and 50 req/day
+# (1000/day once >= $10 of credits were ever purchased). Verified 2026-10-03 at
+# https://openrouter.ai/docs/api-reference/limits. Smoke-test only; never report data.
+FREE_SUFFIX = ":free"
+FREE_MAX_RPM = 20.0
+
+
+def is_free_model(model: str) -> bool:
+    return model.endswith(FREE_SUFFIX)
+
 
 class Settings(BaseModel):
     openrouter_api_key: str | None = Field(default=None, repr=False)
     budget_usd: float = 60.0
     max_concurrency: int = 4
+    max_rpm: float = 0.0  # 0 = no client-side rate limit
+    aws_credits_usd: float = 80.0
     data_dir: Path = Path("data")
 
     @property
@@ -36,6 +48,10 @@ class Settings(BaseModel):
     def spend_path(self) -> Path:
         return self.data_dir / "spend.jsonl"
 
+    @property
+    def aws_spend_path(self) -> Path:
+        return self.data_dir / "aws_spend.jsonl"
+
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     e = os.environ if env is None else env
@@ -43,5 +59,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         openrouter_api_key=e.get("OPENROUTER_API_KEY") or None,
         budget_usd=float(e.get("CONFORMANCE_BUDGET_USD", "60")),
         max_concurrency=int(e.get("CONFORMANCE_MAX_CONCURRENCY", "4")),
+        max_rpm=float(e.get("CONFORMANCE_MAX_RPM", "0")),
+        aws_credits_usd=float(e.get("CONFORMANCE_AWS_CREDITS_USD", "80")),
         data_dir=Path(e.get("CONFORMANCE_DATA_DIR", "data")),
     )

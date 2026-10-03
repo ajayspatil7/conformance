@@ -17,8 +17,12 @@ from ..config import OPENROUTER_BASE_URL
 from .base import HttpChatClient
 
 
-def provider_routing(provider: str) -> dict[str, Any]:
-    return {"order": [provider], "allow_fallbacks": False, "require_parameters": True}
+def provider_routing(provider: str, require_parameters: bool = True) -> dict[str, Any]:
+    return {
+        "order": [provider],
+        "allow_fallbacks": False,
+        "require_parameters": require_parameters,
+    }
 
 
 class OpenRouterClient(HttpChatClient):
@@ -29,13 +33,15 @@ class OpenRouterClient(HttpChatClient):
         base_url: str = OPENROUTER_BASE_URL,
         timeout_s: float = 300.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        require_parameters: bool = True,
     ) -> None:
         super().__init__(base_url, api_key, timeout_s, transport)
         self.name = provider
         self.provider = provider
+        self.require_parameters = require_parameters
 
     def prepare(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return {**payload, "provider": provider_routing(self.provider)}
+        return {**payload, "provider": provider_routing(self.provider, self.require_parameters)}
 
 
 class EndpointInfo(BaseModel):

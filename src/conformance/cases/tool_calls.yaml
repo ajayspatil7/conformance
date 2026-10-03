@@ -1,60 +1,247 @@
-# Sampling follows the official non-thinking settings; thinking disabled to isolate the tool parser.
+# Probe A: tool calling. 20 cases: 6 should-call, 5 should-not-call, 5 choose-among (all six
+# tools offered), 4 multi-turn continuations.
+# Sampling: official non-thinking settings; thinking disabled to isolate the tool parser.
+# max_tokens is 2048 (not 512) so a provider that drops `chat_template_kwargs` and thinks anyway is
+# reported as `truncated`, not misread as a tool-parser failure.
+# `expect.args` lists key/value pairs that must appear in some call to `expect.tool`
+# (strings compared case-insensitively).
+
+definitions:
+  tools:
+    get_weather: &get_weather
+      type: function
+      function:
+        name: get_weather
+        description: Get current weather for a city.
+        parameters:
+          type: object
+          properties:
+            city: {type: string}
+            unit: {type: string, enum: [celsius, fahrenheit]}
+          required: [city]
+    get_time: &get_time
+      type: function
+      function:
+        name: get_time
+        description: Get the current local time for an IANA timezone.
+        parameters:
+          type: object
+          properties:
+            timezone: {type: string}
+          required: [timezone]
+    search_flights: &search_flights
+      type: function
+      function:
+        name: search_flights
+        description: Search one-way flights between two IATA airport codes on a date.
+        parameters:
+          type: object
+          properties:
+            origin: {type: string, pattern: "^[A-Z]{3}$"}
+            destination: {type: string, pattern: "^[A-Z]{3}$"}
+            date: {type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$"}
+            passengers: {type: integer, minimum: 1}
+          required: [origin, destination, date]
+    convert_currency: &convert_currency
+      type: function
+      function:
+        name: convert_currency
+        description: Convert an amount between ISO 4217 currency codes.
+        parameters:
+          type: object
+          properties:
+            amount: {type: number}
+            from: {type: string, pattern: "^[A-Z]{3}$"}
+            to: {type: string, pattern: "^[A-Z]{3}$"}
+          required: [amount, from, to]
+    create_calendar_event: &create_calendar_event
+      type: function
+      function:
+        name: create_calendar_event
+        description: Create a calendar event.
+        parameters:
+          type: object
+          properties:
+            title: {type: string}
+            start: {type: string, description: "ISO 8601 local datetime, e.g. 2026-10-12T14:00"}
+            duration_minutes: {type: integer, minimum: 1}
+            attendees: {type: array, items: {type: string}}
+          required: [title, start]
+    lookup_order: &lookup_order
+      type: function
+      function:
+        name: lookup_order
+        description: Look up the status of a customer order.
+        parameters:
+          type: object
+          properties:
+            order_id: {type: string, pattern: "^ORD-\\d{6}$"}
+          required: [order_id]
+  toolsets:
+    weather_time: &weather_time [*get_weather, *get_time]
+    travel: &travel [*search_flights, *get_weather, *convert_currency]
+    office: &office [*create_calendar_event, *lookup_order, *get_time]
+    all: &all_tools
+      [*get_weather, *get_time, *search_flights, *convert_currency, *create_calendar_event,
+       *lookup_order]
+  params: &p
+    max_tokens: 2048
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    presence_penalty: 1.5
+    chat_template_kwargs: {enable_thinking: false}
+
 cases:
-  - id: should-call-weather
+  # ---- should call ----------------------------------------------------------------------------
+  - id: should-call-weather-paris
     kind: should_call
-    description: Clear request that needs the weather tool.
     messages:
       - {role: user, content: "What's the weather in Paris right now?"}
-    tools: &tools
-      - type: function
-        function:
-          name: get_weather
-          description: Get current weather for a city.
-          parameters:
-            type: object
-            properties:
-              city: {type: string}
-              unit: {type: string, enum: [celsius, fahrenheit]}
-            required: [city]
-      - type: function
-        function:
-          name: get_time
-          description: Get the current local time for an IANA timezone.
-          parameters:
-            type: object
-            properties:
-              timezone: {type: string}
-            required: [timezone]
-    params: &p
-      max_tokens: 512
-      temperature: 0.7
-      top_p: 0.8
-      top_k: 20
-      presence_penalty: 1.5
-      chat_template_kwargs: {enable_thinking: false}
-    expect: {should_call: true, tool: get_weather}
+    tools: *weather_time
+    params: *p
+    expect: {should_call: true, tool: get_weather, args: {city: Paris}}
 
+  - id: should-call-weather-fahrenheit
+    kind: should_call
+    messages:
+      - {role: user, content: "Tell me the current temperature in Chicago, in fahrenheit."}
+    tools: *weather_time
+    params: *p
+    expect: {should_call: true, tool: get_weather, args: {city: Chicago, unit: fahrenheit}}
+
+  - id: should-call-flight-search
+    kind: should_call
+    messages:
+      - {role: user, content: "Find flights from SFO to JFK on 2026-11-20 for 2 passengers."}
+    tools: *travel
+    params: *p
+    expect:
+      should_call: true
+      tool: search_flights
+      args: {origin: SFO, destination: JFK, date: "2026-11-20", passengers: 2}
+
+  - id: should-call-currency
+    kind: should_call
+    messages:
+      - {role: user, content: "Convert 250 euros to US dollars."}
+    tools: *travel
+    params: *p
+    expect: {should_call: true, tool: convert_currency, args: {amount: 250, from: EUR, to: USD}}
+
+  - id: should-call-order-lookup
+    kind: should_call
+    messages:
+      - {role: user, content: "Where is my order ORD-482913?"}
+    tools: *office
+    params: *p
+    expect: {should_call: true, tool: lookup_order, args: {order_id: ORD-482913}}
+
+  - id: should-call-calendar
+    kind: should_call
+    description: Nested array argument (attendees).
+    messages:
+      - role: user
+        content: >-
+          Schedule a 30-minute meeting titled "Design review" on 2026-10-12 at 14:00 with
+          alice@example.com and bob@example.com.
+    tools: *office
+    params: *p
+    expect:
+      should_call: true
+      tool: create_calendar_event
+      args: {title: Design review, duration_minutes: 30}
+
+  # ---- should not call ------------------------------------------------------------------------
   - id: should-not-call-arithmetic
     kind: should_not_call
-    description: Trivial question that needs no tool.
     messages:
       - {role: user, content: "What is 17 + 25? Answer with just the number."}
-    tools: *tools
+    tools: *weather_time
     params: *p
     expect: {should_call: false}
 
-  - id: choose-time-tool
+  - id: should-not-call-capital
+    kind: should_not_call
+    messages:
+      - {role: user, content: "What is the capital of Australia? One word."}
+    tools: *travel
+    params: *p
+    expect: {should_call: false}
+
+  - id: should-not-call-rewrite
+    kind: should_not_call
+    messages:
+      - {role: user, content: "Rewrite this more formally: 'gonna be late, sorry'"}
+    tools: *office
+    params: *p
+    expect: {should_call: false}
+
+  - id: should-not-call-sky-blue
+    kind: should_not_call
+    description: Weather-adjacent wording, but no live data is needed.
+    messages:
+      - {role: user, content: "In one sentence, explain why the sky is blue."}
+    tools: *weather_time
+    params: *p
+    expect: {should_call: false}
+
+  - id: should-not-call-leap-february
+    kind: should_not_call
+    messages:
+      - {role: user, content: "How many days does February have in a leap year? Just the number."}
+    tools: *office
+    params: *p
+    expect: {should_call: false}
+
+  # ---- choose among all six tools -------------------------------------------------------------
+  - id: choose-time-tokyo
     kind: choose_among
-    description: Two tools offered; only get_time fits.
     messages:
       - {role: user, content: "What time is it in Asia/Tokyo?"}
-    tools: *tools
+    tools: *all_tools
     params: *p
-    expect: {should_call: true, tool: get_time}
+    expect: {should_call: true, tool: get_time, args: {timezone: Asia/Tokyo}}
 
-  - id: continuation-after-tool-result
+  - id: choose-weather-berlin
+    kind: choose_among
+    messages:
+      - {role: user, content: "Is it raining in Berlin at the moment?"}
+    tools: *all_tools
+    params: *p
+    expect: {should_call: true, tool: get_weather, args: {city: Berlin}}
+
+  - id: choose-currency-chf-jpy
+    kind: choose_among
+    messages:
+      - {role: user, content: "How many Japanese yen is 100 Swiss francs today?"}
+    tools: *all_tools
+    params: *p
+    expect: {should_call: true, tool: convert_currency, args: {amount: 100, from: CHF, to: JPY}}
+
+  - id: choose-order-status
+    kind: choose_among
+    messages:
+      - {role: user, content: "Has order ORD-100200 shipped yet?"}
+    tools: *all_tools
+    params: *p
+    expect: {should_call: true, tool: lookup_order, args: {order_id: ORD-100200}}
+
+  - id: choose-flight-lhr-dub
+    kind: choose_among
+    messages:
+      - {role: user, content: "Any flights from LHR to DUB on 2026-12-01 for one person?"}
+    tools: *all_tools
+    params: *p
+    expect:
+      should_call: true
+      tool: search_flights
+      args: {origin: LHR, destination: DUB, date: "2026-12-01"}
+
+  # ---- multi-turn continuation ----------------------------------------------------------------
+  - id: continuation-weather-answer
     kind: continuation
-    description: Tool result is supplied; the model should answer in text, not call again.
+    description: Tool result supplied; answer in text, do not call again.
     messages:
       - {role: user, content: "What's the weather in Paris right now?"}
       - role: assistant
@@ -64,6 +251,54 @@ cases:
             type: function
             function: {name: get_weather, arguments: '{"city": "Paris"}'}
       - {role: tool, tool_call_id: call_1, content: '{"temp_c": 18, "sky": "cloudy"}'}
-    tools: *tools
+    tools: *weather_time
     params: *p
     expect: {should_call: false}
+
+  - id: continuation-order-answer
+    kind: continuation
+    messages:
+      - {role: user, content: "Where is my order ORD-482913?"}
+      - role: assistant
+        content: null
+        tool_calls:
+          - id: call_1
+            type: function
+            function: {name: lookup_order, arguments: '{"order_id": "ORD-482913"}'}
+      - role: tool
+        tool_call_id: call_1
+        content: '{"status": "in transit", "carrier": "DHL", "eta": "2026-10-06"}'
+    tools: *office
+    params: *p
+    expect: {should_call: false}
+
+  - id: continuation-currency-answer
+    kind: continuation
+    messages:
+      - {role: user, content: "Convert 250 euros to US dollars."}
+      - role: assistant
+        content: null
+        tool_calls:
+          - id: call_1
+            type: function
+            function: {name: convert_currency, arguments: '{"amount": 250, "from": "EUR", "to": "USD"}'}
+      - {role: tool, tool_call_id: call_1, content: '{"result": 271.5, "rate": 1.086}'}
+    tools: *travel
+    params: *p
+    expect: {should_call: false}
+
+  - id: continuation-second-call
+    kind: continuation
+    description: Two cities asked, one answered; the next turn must call for the other city.
+    messages:
+      - {role: user, content: "Compare the current weather in Paris and Rome."}
+      - role: assistant
+        content: null
+        tool_calls:
+          - id: call_1
+            type: function
+            function: {name: get_weather, arguments: '{"city": "Paris"}'}
+      - {role: tool, tool_call_id: call_1, content: '{"temp_c": 18, "sky": "cloudy"}'}
+    tools: *weather_time
+    params: *p
+    expect: {should_call: true, tool: get_weather, args: {city: Rome}}

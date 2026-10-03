@@ -1,49 +1,63 @@
-# Thinking-mode sampling: temperature=1.0, top_p=0.95, top_k=20 (official).
-# `reasoning_effort` is sent as-is; OpenRouter may normalise it, direct endpoints pass it through.
-cases:
-  - id: effort-low
-    kind: effort
-    messages: &q
-      - {role: user, content: "A train leaves at 3:15pm and arrives at 6:40pm. How many minutes is the trip?"}
-    params:
-      max_tokens: 4096
-      temperature: 1.0
-      top_p: 0.95
-      top_k: 20
-      reasoning_effort: low
-    expect: {thinking: true}
+# Probe B: reasoning-effort and thinking-control passthrough. 20 cases = 4 questions x 5 controls:
+#   low / medium / xhigh  -> top-level `reasoning_effort` (Qwen3.8's documented control; listed in
+#                            every OpenRouter endpoint's supported_parameters on 2026-10-03)
+#   off-kwargs            -> chat_template_kwargs.enable_thinking=false (Qwen's template switch)
+#   off-openrouter        -> reasoning: {effort: none} (OpenRouter's own control; a direct vLLM
+#                            reference will not understand it, so compare it across providers only)
+# Thinking sampling: temperature=1.0, top_p=0.95, top_k=20. Non-thinking: 0.7 / 0.8 / 20 / pp 1.5.
+# max_tokens caps grow with effort so ordering low < medium < xhigh stays visible; an expected
+# monotone ordering is checked in the report, not per case. `expect.answer` checks correctness.
 
-  - id: effort-medium
-    kind: effort
-    messages: *q
-    params:
-      max_tokens: 4096
-      temperature: 1.0
-      top_p: 0.95
-      top_k: 20
-      reasoning_effort: medium
-    expect: {thinking: true}
-
-  - id: effort-xhigh
-    kind: effort
-    messages: *q
-    params:
-      max_tokens: 8192
-      temperature: 1.0
-      top_p: 0.95
-      top_k: 20
-      reasoning_effort: xhigh
-    expect: {thinking: true}
-
-  - id: thinking-disabled
-    kind: thinking_off
-    description: enable_thinking=false must yield zero reasoning tokens.
-    messages: *q
-    params:
-      max_tokens: 1024
+definitions:
+  questions:
+    train: &q_train
+      - {role: user, content: "A train leaves at 3:15pm and arrives at 6:40pm. How many minutes is the trip? End with just the number."}
+    painters: &q_painters
+      - {role: user, content: "If 3 workers paint 3 walls in 3 hours, how many hours do 6 workers need to paint 12 walls at the same rate? End with just the number."}
+    divisors: &q_divisors
+      - {role: user, content: "What is the sum of all positive divisors of 36? End with just the number."}
+    balls: &q_balls
+      - {role: user, content: "A bag has 4 red and 6 blue balls. Two are drawn without replacement. What is the probability both are red? Answer as a reduced fraction like a/b."}
+  params:
+    low: &low {max_tokens: 4096, temperature: 1.0, top_p: 0.95, top_k: 20, reasoning_effort: low}
+    medium: &medium {max_tokens: 6144, temperature: 1.0, top_p: 0.95, top_k: 20, reasoning_effort: medium}
+    xhigh: &xhigh {max_tokens: 8192, temperature: 1.0, top_p: 0.95, top_k: 20, reasoning_effort: xhigh}
+    off_kwargs: &off_kwargs
+      max_tokens: 2048
       temperature: 0.7
       top_p: 0.8
       top_k: 20
       presence_penalty: 1.5
       chat_template_kwargs: {enable_thinking: false}
-    expect: {thinking: false}
+    off_openrouter: &off_openrouter
+      max_tokens: 2048
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      presence_penalty: 1.5
+      reasoning: {effort: none}
+
+cases:
+  - {id: train-low, kind: effort, messages: *q_train, params: *low, expect: {thinking: true, answer: "205"}}
+  - {id: train-medium, kind: effort, messages: *q_train, params: *medium, expect: {thinking: true, answer: "205"}}
+  - {id: train-xhigh, kind: effort, messages: *q_train, params: *xhigh, expect: {thinking: true, answer: "205"}}
+  - {id: train-off-kwargs, kind: thinking_off, messages: *q_train, params: *off_kwargs, expect: {thinking: false, answer: "205"}}
+  - {id: train-off-openrouter, kind: thinking_off, messages: *q_train, params: *off_openrouter, expect: {thinking: false, answer: "205"}}
+
+  - {id: painters-low, kind: effort, messages: *q_painters, params: *low, expect: {thinking: true, answer: "6"}}
+  - {id: painters-medium, kind: effort, messages: *q_painters, params: *medium, expect: {thinking: true, answer: "6"}}
+  - {id: painters-xhigh, kind: effort, messages: *q_painters, params: *xhigh, expect: {thinking: true, answer: "6"}}
+  - {id: painters-off-kwargs, kind: thinking_off, messages: *q_painters, params: *off_kwargs, expect: {thinking: false, answer: "6"}}
+  - {id: painters-off-openrouter, kind: thinking_off, messages: *q_painters, params: *off_openrouter, expect: {thinking: false, answer: "6"}}
+
+  - {id: divisors-low, kind: effort, messages: *q_divisors, params: *low, expect: {thinking: true, answer: "91"}}
+  - {id: divisors-medium, kind: effort, messages: *q_divisors, params: *medium, expect: {thinking: true, answer: "91"}}
+  - {id: divisors-xhigh, kind: effort, messages: *q_divisors, params: *xhigh, expect: {thinking: true, answer: "91"}}
+  - {id: divisors-off-kwargs, kind: thinking_off, messages: *q_divisors, params: *off_kwargs, expect: {thinking: false, answer: "91"}}
+  - {id: divisors-off-openrouter, kind: thinking_off, messages: *q_divisors, params: *off_openrouter, expect: {thinking: false, answer: "91"}}
+
+  - {id: balls-low, kind: effort, messages: *q_balls, params: *low, expect: {thinking: true, answer: "2/15"}}
+  - {id: balls-medium, kind: effort, messages: *q_balls, params: *medium, expect: {thinking: true, answer: "2/15"}}
+  - {id: balls-xhigh, kind: effort, messages: *q_balls, params: *xhigh, expect: {thinking: true, answer: "2/15"}}
+  - {id: balls-off-kwargs, kind: thinking_off, messages: *q_balls, params: *off_kwargs, expect: {thinking: false, answer: "2/15"}}
+  - {id: balls-off-openrouter, kind: thinking_off, messages: *q_balls, params: *off_openrouter, expect: {thinking: false, answer: "2/15"}}
