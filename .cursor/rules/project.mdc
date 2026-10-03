@@ -1,0 +1,12 @@
+---
+description: conformance project rules
+alwaysApply: true
+---
+Read `AGENTS.md` first; it is canonical. Summary of hard rules:
+- No paid API call without explicit human approval this session (`--dry-run` default; `--yes` + cost estimate).
+- Never read, print, or commit `.env` or secrets.
+- Never create or modify cloud resources; `lab/RUNBOOK.md` is for the human.
+- Never edit or delete `data/runs/` (append-only).
+- Tests never touch the network.
+- Every run writes a manifest. Say "bugs"/"deviations", never imply provider intent.
+- Out of scope: dashboards, web apps, databases, routing, attestation, multimodal, extra models.
