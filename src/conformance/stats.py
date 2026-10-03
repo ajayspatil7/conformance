@@ -44,6 +44,29 @@ def bootstrap_ci(
     return (lo, hi)
 
 
+def bootstrap_ratio_ci(
+    numer: Sequence[float],
+    denom: Sequence[float],
+    n_boot: int = 2000,
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> Interval:
+    """Percentile bootstrap CI of mean(numer) / mean(denom), resampling each side independently."""
+    if not numer or not denom:
+        raise ValueError("bootstrap_ratio_ci needs values on both sides")
+    rng = random.Random(seed)
+    ratios = []
+    for _ in range(n_boot):
+        d = _mean([denom[rng.randrange(len(denom))] for _ in denom])
+        if d > 0:
+            ratios.append(_mean([numer[rng.randrange(len(numer))] for _ in numer]) / d)
+    if not ratios:
+        raise ValueError("reference mean is zero in every resample")
+    ratios.sort()
+    k = len(ratios)
+    return (ratios[int((alpha / 2) * k)], ratios[min(k - 1, int((1 - alpha / 2) * k))])
+
+
 def intervals_overlap(a: Interval, b: Interval) -> bool:
     return a[0] <= b[1] and b[0] <= a[1]
 

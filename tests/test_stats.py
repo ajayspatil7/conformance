@@ -1,6 +1,12 @@
 import pytest
 
-from conformance.stats import bootstrap_ci, intervals_overlap, is_flagged, wilson_interval
+from conformance.stats import (
+    bootstrap_ci,
+    bootstrap_ratio_ci,
+    intervals_overlap,
+    is_flagged,
+    wilson_interval,
+)
 
 
 def test_wilson_known_value():
@@ -30,3 +36,13 @@ def test_flagging_requires_non_overlap():
     assert intervals_overlap((0.1, 0.5), (0.4, 0.9))
     assert not is_flagged((0.1, 0.5), (0.4, 0.9))
     assert is_flagged((0.0, 0.2), (0.5, 0.9))
+
+
+def test_bootstrap_ratio_ci():
+    lo, hi = bootstrap_ratio_ci([50, 52, 48, 51], [100, 98, 102, 99])
+    assert lo < 0.5 < hi and hi < 1.0
+    assert bootstrap_ratio_ci([10, 10], [10, 10]) == (1.0, 1.0)
+    with pytest.raises(ValueError):
+        bootstrap_ratio_ci([1], [0, 0])
+    with pytest.raises(ValueError):
+        bootstrap_ratio_ci([], [1])
