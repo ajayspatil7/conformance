@@ -1,0 +1,7 @@
+{"ts": "2026-10-03T07:29:32.689097+00:00", "run_id": "2026-10-03_tool_calls_ModelRun", "provider": "ModelRun", "prompt_tokens": 396, "completion_tokens": 47, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:29:32.729600+00:00", "run_id": "2026-10-03_tool_calls_ModelRun", "provider": "ModelRun", "prompt_tokens": 454, "completion_tokens": 44, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:29:34.426577+00:00", "run_id": "2026-10-03_reasoning_ModelRun", "provider": "ModelRun", "prompt_tokens": 73, "completion_tokens": 172, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:29:36.584054+00:00", "run_id": "2026-10-03_reasoning_ModelRun", "provider": "ModelRun", "prompt_tokens": 85, "completion_tokens": 93, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:29:41.944743+00:00", "run_id": "2026-10-03_reasoning_ModelRun", "provider": "ModelRun", "prompt_tokens": 45, "completion_tokens": 331, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:29:45.967030+00:00", "run_id": "2026-10-03_params_ModelRun", "provider": "ModelRun", "prompt_tokens": 53, "completion_tokens": 38, "cost_usd": 0.0}
+{"ts": "2026-10-03T07:29:53.570355+00:00", "run_id": "2026-10-03_params_ModelRun", "provider": "ModelRun", "prompt_tokens": 65, "completion_tokens": 57, "cost_usd": 0.0}

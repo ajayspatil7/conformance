@@ -1,0 +1,60 @@
+{
+  "run_id": "2026-10-03_params_ModelRun",
+  "git_sha": "a311df590369b5fa39bac5f578d8f4c19a74c660",
+  "case_file": "params.yaml",
+  "case_file_sha256": "faf57461e478c3b310fc6e6f7ae7ebd872038aa3dde34e5bf20b7e9646531547",
+  "model": "qwen/qwen3.8-27b:free",
+  "provider": "ModelRun",
+  "probe": "params",
+  "repeats": 1,
+  "requests": [
+    {
+      "model": "qwen/qwen3.8-27b:free",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Count from 1 to 10, separated by commas."
+        }
+      ],
+      "max_tokens": 128,
+      "temperature": 0.0,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "stop": [
+        "5"
+      ],
+      "provider": {
+        "order": [
+          "ModelRun"
+        ],
+        "allow_fallbacks": false,
+        "require_parameters": false
+      }
+    },
+    {
+      "model": "qwen/qwen3.8-27b:free",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is 12 times 12? Answer briefly."
+        }
+      ],
+      "max_tokens": 2048,
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "top_k": 20,
+      "reasoning_effort": "low",
+      "provider": {
+        "order": [
+          "ModelRun"
+        ],
+        "allow_fallbacks": false,
+        "require_parameters": false
+      }
+    }
+  ],
+  "timestamp": "2026-10-03T07:29:41.962307+00:00",
+  "harness_version": "0.1.0",
+  "result_file": "2026-10-03_params_ModelRun.jsonl"
+}

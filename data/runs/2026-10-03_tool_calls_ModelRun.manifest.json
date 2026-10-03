@@ -1,0 +1,172 @@
+{
+  "run_id": "2026-10-03_tool_calls_ModelRun",
+  "git_sha": "a311df590369b5fa39bac5f578d8f4c19a74c660",
+  "case_file": "tool_calls.yaml",
+  "case_file_sha256": "b783cb5a782c2bf90ed941fc7a31a91e9f33247a133e71213371125578332aa0",
+  "model": "qwen/qwen3.8-27b:free",
+  "provider": "ModelRun",
+  "probe": "tool_calls",
+  "repeats": 1,
+  "requests": [
+    {
+      "model": "qwen/qwen3.8-27b:free",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What's the weather in Paris right now?"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_weather",
+            "description": "Get current weather for a city.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "city": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": [
+                    "celsius",
+                    "fahrenheit"
+                  ]
+                }
+              },
+              "required": [
+                "city"
+              ]
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "get_time",
+            "description": "Get the current local time for an IANA timezone.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "timezone": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "timezone"
+              ]
+            }
+          }
+        }
+      ],
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "top_p": 0.8,
+      "top_k": 20,
+      "presence_penalty": 1.5,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "provider": {
+        "order": [
+          "ModelRun"
+        ],
+        "allow_fallbacks": false,
+        "require_parameters": false
+      }
+    },
+    {
+      "model": "qwen/qwen3.8-27b:free",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What's the weather in Paris right now?"
+        },
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "get_weather",
+                "arguments": "{\"city\": \"Paris\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "call_1",
+          "content": "{\"temp_c\": 18, \"sky\": \"cloudy\"}"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_weather",
+            "description": "Get current weather for a city.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "city": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": [
+                    "celsius",
+                    "fahrenheit"
+                  ]
+                }
+              },
+              "required": [
+                "city"
+              ]
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "get_time",
+            "description": "Get the current local time for an IANA timezone.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "timezone": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "timezone"
+              ]
+            }
+          }
+        }
+      ],
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "top_p": 0.8,
+      "top_k": 20,
+      "presence_penalty": 1.5,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "provider": {
+        "order": [
+          "ModelRun"
+        ],
+        "allow_fallbacks": false,
+        "require_parameters": false
+      }
+    }
+  ],
+  "timestamp": "2026-10-03T07:29:28.532117+00:00",
+  "harness_version": "0.1.0",
+  "result_file": "2026-10-03_tool_calls_ModelRun.jsonl"
+}
