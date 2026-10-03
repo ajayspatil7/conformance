@@ -18,13 +18,20 @@ uv run conformance run --probe tool_calls --provider <name> --repeats 5 --dry-ru
 uv run conformance run --probe tool_calls --provider <name> --price-in X --price-out Y --yes  # spends money
 uv run conformance stats data/runs/*.jsonl --reference <ref-provider>
 make smoke-free       # $0 run of 7 cases on qwen/qwen3.8-27b:free (needs OPENROUTER_API_KEY exported)
-make spend            # OpenRouter spend + AWS credits used/remaining
+make smoke-gateway    # ~$0.03: same cases via Vercel AI Gateway pinned to deepinfra
+make spend            # OpenRouter, AI Gateway, and AWS credit ledgers
+uv run conformance providers --route gateway   # providers on Vercel AI Gateway
 uv run conformance aws-log --usd 3.70 --hours 2 --instance g6e.xlarge --note "vLLM reference"
 ```
 Keys come only from environment variables (see `.env.example`).
 
+Routes (`--route`): `openrouter` (default; pins one provider, fallbacks off), `gateway` (Vercel
+AI Gateway, pins with `only`, cross-check), `direct` (`--base-url`, e.g. the self-hosted reference).
+Every response's serving provider is recorded and checked against the pinned one (`provider_match`).
+
 Budgets: **$60 OpenRouter API** (`CONFORMANCE_BUDGET_USD`, hard cap enforced against
-`data/spend.jsonl`) and **$80 AWS credits** (`CONFORMANCE_AWS_CREDITS_USD`, tracked in
+`data/spend.jsonl`), **$5 AI Gateway** (`CONFORMANCE_GATEWAY_BUDGET_USD`, hard cap,
+`data/gateway_spend.jsonl`) and **$80 AWS credits** (`CONFORMANCE_AWS_CREDITS_USD`, tracked in
 `data/aws_spend.jsonl` from Billing-console numbers logged with `conformance aws-log`).
 
 `conformance stats` reports, per provider and case: every score as a Wilson interval (proportions)

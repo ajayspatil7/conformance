@@ -1,4 +1,4 @@
-.PHONY: setup test lint dry-run smoke-free spend
+.PHONY: setup test lint dry-run smoke-free smoke-gateway spend
 
 setup:
 	uv sync
@@ -25,6 +25,14 @@ smoke-free:
 	@test -n "$$OPENROUTER_API_KEY" || { echo "OPENROUTER_API_KEY is not exported"; exit 1; }
 	uv run conformance run --probe all --model qwen/qwen3.8-27b:free --provider ModelRun \
 		--no-require-parameters --repeats 1 $(SMOKE_CASES) --yes
+
+# Paid but tiny: the same 7 cases via Vercel AI Gateway pinned to deepinfra (also on OpenRouter),
+# worst case ~$0.03 of the $5 gateway budget. Prices: gateway endpoint listing, 2026-10-03.
+# Human runs it with the key exported: `set -a; . ./.env; set +a; make smoke-gateway`.
+smoke-gateway:
+	@test -n "$$AI_GATEWAY_API_KEY" || { echo "AI_GATEWAY_API_KEY is not exported"; exit 1; }
+	uv run conformance run --probe all --route gateway --provider deepinfra \
+		--price-in 0.15 --price-out 1.875 --repeats 1 $(SMOKE_CASES) --yes
 
 spend:
 	uv run conformance spend

@@ -16,8 +16,10 @@ vllm serve Qwen/Qwen3.8-27B \
 Parser names must match the model card for Qwen3.8; confirm there first. Probe it with
 `conformance run --probe all --provider reference --base-url http://<host>:8000/v1 --price-in 0 --price-out 0 --yes`
 (price 0 because instance cost is tracked in the AWS credit ledger, not the API ledger).
-The `*-off-openrouter` reasoning cases use OpenRouter's `reasoning` object, which vLLM does not
-understand; compare those across OpenRouter providers only.
+The `*-off-openrouter` reasoning cases use the router-level `reasoning` object, which vLLM does not
+understand; compare those across routed providers only. Tool-call and params cases send it too
+(next to `chat_template_kwargs`); vLLM is expected to ignore unknown fields with a warning, so check
+the server log once for "fields were present in the request but ignored" and note it in FINDINGS.
 
 ## 2. Fault injections (each is a separate server launch; label runs by fault)
 | Fault | How | Expected probe signal |

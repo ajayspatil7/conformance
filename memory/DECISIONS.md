@@ -1,5 +1,36 @@
 # Decisions (newest first)
 
+## 2026-10-03 — Why providers are tested at all, and what self-hosting is for
+The project's question is "do *providers* serve Qwen3.8-27B correctly?" — what a user of DeepInfra,
+Novita, etc. actually receives. Providers are the system under test, so no amount of self-hosting
+replaces calling them. Self-hosting on AWS is the *reference* (a known configuration to compare
+against) and the *lab* (inject one fault at a time — wrong template, missing parser, stripped
+params — to learn each fault's signature, which is how provider failures get attributed). It is not
+automatically ground truth: the reference is checked against the model card's settings and its own
+config is recorded. Budget split follows: providers $60 (OpenRouter) + $5 (AI Gateway cross-check),
+reference/lab $80 (AWS credits, a few GPU-hours).
+
+## 2026-10-03 — Vercel AI Gateway as a cross-check route, not the main route
+Gateway lists 7 providers for alibaba/qwen3.8-27b (6 also on OpenRouter) and does not list `top_p`,
+`top_k`, `presence_penalty`, `reasoning_effort`, or `chat_template_kwargs`, so it cannot carry the
+official sampling settings as a primary route. Its value is attribution: the same upstream provider
+reached via two routers separates router bugs from provider bugs. Pinning via
+`providerOptions.gateway.only=[slug]`, which restricts fallbacks too (docs:
+https://vercel.com/docs/ai-gateway/models-and-providers/provider-filtering-and-ordering). Results are
+named `gateway-<slug>` so routes never mix in stats. Separate $5 hard-capped ledger.
+
+## 2026-10-03 — Verify who served every request (`provider_match`)
+OpenRouter returns `provider`; AI Gateway reports `gateway.routing.finalProvider` in provider
+metadata. Each result stores `served_provider`, and `provider_match` (case/punctuation-insensitive,
+prefix-tolerant: "mancer" ~ "Mancer 2") is scored as a proportion, so silent re-routing shows up as
+a deviation instead of contaminating other metrics. Router-reported cost is preferred for the ledger.
+
+## 2026-10-03 — Probes A and C turn thinking off with both switches
+The smoke run showed `chat_template_kwargs.enable_thinking=false` alone did not stop reasoning via
+OpenRouter, while `reasoning: {effort: none}` did. A and C now send both, so tool-parser and
+parameter results are not confounded by thinking. Probe B keeps the switches in separate cases,
+because which switch works is its measurement.
+
 ## 2026-10-03 — Length-ratio flagging uses CI overlap, not "ratio CI excludes 1"
 `length_ratio` (provider mean completion tokens / reference) is reported with a bootstrap ratio CI,
 but flagged only when the provider's and reference's mean-token CIs do not overlap, matching the

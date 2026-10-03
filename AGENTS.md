@@ -11,6 +11,9 @@ chat-template sanity. Ships **Saturday 10 October 2026**.
 
 Budgets (two separate ledgers, see `memory/SPEND.md`; `conformance spend` shows both):
 - **$60 OpenRouter API spend** — hard cap enforced by the harness from `data/spend.jsonl`.
+- **$5 Vercel AI Gateway credits** — cross-check route only (same upstream provider reached via a
+  second router, to tell router bugs from provider bugs). Ledger `data/gateway_spend.jsonl`,
+  enforced by the harness like the OpenRouter cap. Key: `AI_GATEWAY_API_KEY`.
 - **$80 AWS credits** — for the human-operated reference endpoint and fault-injection lab only.
   Tracked in `data/aws_spend.jsonl`; the human logs usage read from the AWS Billing console with
   `conformance aws-log`. Agents never call AWS to obtain these numbers.
@@ -27,12 +30,14 @@ Budgets (two separate ledgers, see `memory/SPEND.md`; `conformance spend` shows 
 - `make lint` — ruff check + format check
 - `make dry-run` — cost estimate for all probes over placeholder providers (no network)
 - `make smoke-free` — $0 smoke run on the `:free` variant (human runs it; needs the key exported)
-- `make spend` — both ledgers: OpenRouter API spend and AWS credits used/remaining
+- `make smoke-gateway` — ~$0.03 smoke run via Vercel AI Gateway (human runs it; key exported)
+- `make spend` — all ledgers: OpenRouter, AI Gateway, AWS credits
 
 ## Hard rules
 - NEVER make a paid API call unless the human explicitly approves it in the current session. All run
   commands default to `--dry-run`; real calls need `--yes` plus a printed cost estimate.
 - NEVER read, print, or commit `.env` or any secret. Keys come only from environment variables.
+  Never send a router key (OpenRouter, AI Gateway) to any other host; the direct route sends none.
 - NEVER create, start, or modify cloud resources (AWS etc.), and never call AWS APIs (including
   billing/cost APIs). `lab/RUNBOOK.md` is documentation for the human to execute. AWS credit usage
   enters the repo only via `conformance aws-log` with numbers the human provides.
