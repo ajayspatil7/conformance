@@ -47,8 +47,9 @@ def served_provider_of(body: dict[str, Any] | None) -> str | None:
         return None
     if isinstance(body.get("provider"), str):  # OpenRouter
         return body["provider"]
-    routing = _gateway_meta(body).get("routing") or {}
-    final = routing.get("finalProvider") or routing.get("resolvedProvider")
+    # Only `finalProvider` means "served". `resolvedProvider` is the routing plan and is present
+    # even when no provider was attempted (seen on 403s with providerAttemptCount=0).
+    final = (_gateway_meta(body).get("routing") or {}).get("finalProvider")
     return final if isinstance(final, str) else None
 
 

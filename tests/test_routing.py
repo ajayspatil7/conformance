@@ -43,6 +43,18 @@ def test_gateway_client_pins_with_only():
         ),
         (body(), None),
         (None, None),
+        # 403 from the gateway: a plan exists but nothing was served
+        (
+            {
+                "error": {},
+                "providerMetadata": {
+                    "gateway": {
+                        "routing": {"resolvedProvider": "deepinfra", "totalProviderAttemptCount": 0}
+                    }
+                },
+            },
+            None,
+        ),
     ],
 )
 def test_served_provider_of(b, served):

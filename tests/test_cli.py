@@ -139,3 +139,15 @@ def test_bad_route(monkeypatch, tmp_path):
         ).exit_code
         != 0
     )
+
+
+def test_direct_route_api_key_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("CONFORMANCE_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("DEEPINFRA_API_KEY", raising=False)
+    args = ["run", "--probe", "params", "--route", "direct", "--provider", "deepinfra-direct",
+            "--base-url", "https://api.example.invalid/v1", "--price-in", "0.15",
+            "--price-out", "1.875", "--api-key-env", "DEEPINFRA_API_KEY", "--yes"]  # fmt: skip
+    r = runner.invoke(app, args)
+    assert r.exit_code == 2 and "DEEPINFRA_API_KEY is not set" in r.output
+    bad = ["run", "--probe", "params", "--provider", "p", "--api-key-env", "X"]
+    assert runner.invoke(app, bad).exit_code != 0

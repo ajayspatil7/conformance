@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -30,7 +31,7 @@ from .config import (
 from .probes import PROBES, get_probe
 from .runner import load_results, run_probe
 from .schema import Case
-from .summary import flag_deviations, length_ratios, summarize
+from .summary import flag_deviations, length_ratios, request_conflicts, summarize
 
 app = typer.Typer(add_completion=False, help="Provider conformance probes.")
 
@@ -117,6 +118,10 @@ def run(
     max_rpm: Annotated[
         float | None, typer.Option(help="Client-side request cap per minute (0 = none)")
     ] = None,
+    api_key_env: Annotated[
+        str | None,
+        typer.Option(help="direct route: env var holding that endpoint's key (never printed)"),
+    ] = None,
     require_parameters: Annotated[
         bool,
         typer.Option(
@@ -131,6 +136,8 @@ def run(
     real = yes
     settings = load_settings()
     route = resolve_route(route, base_url)
+    if api_key_env and route != "direct":
+        raise typer.BadParameter("--api-key-env applies to --route direct only")
     model = model or default_model(route)
     ledger = route_ledger(route, settings)
     names = list(PROBES) if probe == "all" else [probe]
@@ -186,18 +193,21 @@ def run(
     if price_in is None or price_out is None:
         typer.echo("REFUSED: real runs need explicit --price-in and --price-out.", err=True)
         raise typer.Exit(2)
-    needed = {"openrouter": "OPENROUTER_API_KEY", "gateway": "AI_GATEWAY_API_KEY"}.get(route)
+    direct_key = os.environ.get(api_key_env) if api_key_env else None
+    needed = {"openrouter": "OPENROUTER_API_KEY", "gateway": "AI_GATEWAY_API_KEY"}.get(
+        route, api_key_env
+    )
     have = {
         "openrouter": settings.openrouter_api_key,
         "gateway": settings.ai_gateway_api_key,
-    }.get(route)
+    }.get(route, direct_key)
     if needed and not have:
         typer.echo(f"REFUSED: {needed} is not set in the environment.", err=True)
         raise typer.Exit(2)
     asyncio.run(
         _execute(
             selected, provider, repeats, model, route, base_url, price_in, price_out, ledger,
-            rpm, require_parameters,
+            rpm, require_parameters, direct_key,
         )
     )  # fmt: skip
 
@@ -214,13 +224,14 @@ async def _execute(
     ledger: Ledger,
     max_rpm: float,
     require_parameters: bool,
+    direct_key: str | None = None,
 ) -> None:
     settings = load_settings()
     for prov in providers_:
         client: ChatClient
         if route == "direct":
-            # Self-hosted reference: no OpenRouter/Gateway key is ever sent to it.
-            client = OpenAICompatClient(base_url or "", None, name=prov)
+            # Router keys are never sent here; only the key named by --api-key-env, if any.
+            client = OpenAICompatClient(base_url or "", direct_key, name=prov)
         elif route == "gateway":
             client = VercelGatewayClient(prov, settings.ai_gateway_api_key)
         else:
@@ -301,6 +312,12 @@ def stats(
 ) -> None:
     """Summarise runs: Wilson intervals for proportions, bootstrap CIs for numbers."""
     results = load_results(files)
+    for prov, case, n in request_conflicts(results):
+        typer.echo(
+            f"WARNING: {prov} / {case}: {n} different request bodies across these files "
+            "(case edited between runs?); other metrics pool them.",
+            err=True,
+        )
     summary = summarize(results)
     if reference:
         summary.update(length_ratios(results, reference))

@@ -1,16 +1,19 @@
 from conformance.schema import Result
-from conformance.summary import flag_deviations, length_ratios, summarize
+from conformance.summary import flag_deviations, length_ratios, request_conflicts, summarize
 
 
-def res(provider, case, repeat, score=None, tokens=10, status=200, temperature=0.0):
+def res(
+    provider, case, repeat, score=None, tokens=10, status=200, temperature=0.0, content="x",
+    extra=None,
+):  # fmt: skip
     return Result(
         case_id=case,
         probe="params",
         provider=provider,
         repeat=repeat,
-        request={"temperature": temperature},
+        request={"temperature": temperature, **(extra or {})},
         status_code=status,
-        response={"choices": []} if status == 200 else None,
+        response={"choices": [{"message": {"content": content}}]} if status == 200 else None,
         usage={"completion_tokens": tokens} if status == 200 else None,
         score=score or {},
     )
@@ -24,14 +27,27 @@ def test_http_ok_counts_failed_requests():
 
 
 def test_temp0_mode_agreement():
-    stable = [res("ref", "t", i, {"output_sha": "aa"}) for i in range(10)]
-    noisy = [res("B", "t", i, {"output_sha": f"x{i % 5}"}) for i in range(10)]
-    hot = [res("B", "h", i, {"output_sha": f"y{i}"}, temperature=0.7) for i in range(3)]
-    s = summarize(stable + noisy + hot)
+    stable = [res("ref", "t", i, content="aa") for i in range(10)]
+    noisy = [res("B", "t", i, content=f"x{i % 5}") for i in range(10)]
+    s = summarize(stable + noisy)
     assert s[("ref", "t", "temp0_mode_agreement")].estimate == 1.0
     assert s[("B", "t", "temp0_mode_agreement")].estimate == 0.2
-    assert ("B", "h", "temp0_mode_agreement") not in s  # only temperature-0 requests count
     assert ("B", "t", "temp0_mode_agreement") in flag_deviations(s, "ref")
+
+
+def test_sampled_mode_agreement_catches_ignored_temperature():
+    ref = [res("ref", "h", i, temperature=1.0, content=f"story {i}") for i in range(10)]
+    frozen = [res("B", "h", i, temperature=1.0, content="same story") for i in range(10)]
+    s = summarize(ref + frozen)
+    assert s[("ref", "h", "sampled_mode_agreement")].estimate == 0.1
+    assert s[("B", "h", "sampled_mode_agreement")].estimate == 1.0
+    assert ("ref", "h", "temp0_mode_agreement") not in s
+    assert ("B", "h", "sampled_mode_agreement") in flag_deviations(s, "ref")
+
+
+def test_agreement_needs_two_successful_outputs():
+    s = summarize([res("A", "c", 0, content="a"), res("A", "c", 1, status=500)])
+    assert ("A", "c", "temp0_mode_agreement") not in s
 
 
 def test_length_ratio_and_flagging():
@@ -47,3 +63,16 @@ def test_length_ratio_and_flagging():
     assert ("ref", "c", "length_ratio") not in ratios
     flags = flag_deviations(ratios, "ref")
     assert ("B", "c", "length_ratio") in flags and ("A", "c", "length_ratio") not in flags
+
+
+def test_agreement_only_compares_identical_requests():
+    old = [res("A", "c", i, temperature=0.7, content="thinking on") for i in range(2)]
+    new = [
+        res("A", "c", i, temperature=0.7, content="off", extra={"reasoning": {"effort": "none"}})
+        for i in range(3)
+    ]
+    s = summarize(old + new)
+    m = s[("A", "c", "sampled_mode_agreement")]
+    assert m.n == 3 and m.estimate == 1.0  # largest variant only, not a 2-vs-3 mix
+    assert request_conflicts(old + new) == [("A", "c", 2)]
+    assert request_conflicts(new) == []
